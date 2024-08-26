@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>Dialog</class>
+ <widget class="QDialog" name="Dialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1006</width>
+    <height>826</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Dialog</string>
+  </property>
+  <widget class="QPlainTextEdit" name="Chatting_list">
+   <property name="geometry">
+    <rect>
+     <x>360</x>
+     <y>10</y>
+     <width>631</width>
+     <height>661</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="File_Send_Button">
+   <property name="geometry">
+    <rect>
+     <x>870</x>
+     <y>750</y>
+     <width>121</width>
+     <height>51</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>파일 전송</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="Chatting">
+   <property name="geometry">
+    <rect>
+     <x>360</x>
+     <y>680</y>
+     <width>501</width>
+     <height>51</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QPlainTextEdit" name="Friend_List">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>10</y>
+     <width>341</width>
+     <height>661</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="Chatting_Send_Button">
+   <property name="geometry">
+    <rect>
+     <x>870</x>
+     <y>680</y>
+     <width>121</width>
+     <height>51</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>채팅 전송</string>
+   </property>
+  </widget>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
