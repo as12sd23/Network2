@@ -23,10 +23,11 @@ fmt_size = struct.calcsize(fmt)
 
 class ServerRecv(Thread):
     def __init__(self, sock):
-        super(ServerRecv, self).__init__()
+        super().__init__()
         self.sock = sock
         print(self.sock)
         self.data_list = {}
+        self.Nick_list = {}
         try:
             print('A')
             with open("User_data.txt",'r') as f:
@@ -37,7 +38,6 @@ class ServerRecv(Thread):
                     Imsi = Data.split(' : ')
                     value = Imsi[1].replace('[', '')
                     value = value.replace(']', '')
-                    value = value.replace(' ', '')
                     value = value.replace("'", "")
                     value = value.replace('\n', '')
                     value = value.split(',')
@@ -70,19 +70,17 @@ class ServerRecv(Thread):
                    if header[0][1] == 65:
                        print('진입완료')
                        ID,PW = recvData.decode().split()
-                       print(ID)
-                       print(PW)
                        if ID in self.data_list:
                            DataPW, DataName = self.data_list[ID]
-                           print()
-                           print(DataPW)
-                           print(DataName)
                            
                            if PW == DataPW:
                                print('로그인 성공')
                                send_header = struct.pack(fmt,b'LS00', len(DataName.encode('utf-8')))
                                self.sock.send(send_header + DataName.encode('utf-8'))
-                               self.data_list[ID] = [DataPW, DataName, 'O', self.sock]
+                               
+                               self.Nick_list[DataName] = self.sock
+                               self.data_list[ID] = [DataPW, DataName, self.sock]
+                               print('전송 완료')
                            else:
                                print('로그인 비밀번호 실패')
                                send_header = struct.pack(fmt,b'LF00',0)
@@ -107,7 +105,7 @@ class ServerRecv(Thread):
                        if ID in self.data_list:
                            print('아이디 실패')
                            send_header = struct.pack(fmt,b'AFI0',0)
-                           self.fsock.send(send_header)
+                           self.sock.send(send_header)
                        else:
                            print('1차 통과')
                            if len(self.data_list) > 0:
@@ -128,6 +126,7 @@ class ServerRecv(Thread):
                                    f.write('{} : {}\n'.format(ID, data[ID]))
                                self.data_list[ID] = [PW, NAME]
                                print('저장 완료')
+                               print(self.sock)
                                send_header = struct.pack(fmt,b'AS00',0)
                                self.sock.send(send_header)
                                print('전송 완료')

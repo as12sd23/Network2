@@ -18,15 +18,20 @@ RECV_FILE_PATH = 'C:/Users/c403/Desktop/aaaa/python/저장 폴더'
 form_class = uic.loadUiType('test.ui')[0]
 login_form_class = uic.loadUiType('client.ui')[0]
 Accession_form_class = uic.loadUiType('Accession.ui')[0]
+Friend_form_class = uic.loadUiType('Friend.ui')[0]
 
 #메인 윈도우 클래스
 class WindowClass(QMainWindow, form_class):
-    def __init__(self, sock, NickName):
-        super(WindowClass, self).__init__()
+    def __init__(self, sock):
+        super().__init__()
         self.setupUi(self)
         self.sock = sock
         
-        self.NickName = NickName
+        self.hide()
+        self.Login = Login_Windowclass(self.sock)
+        self.Login.exec()
+        self.Login.show()
+        self.Login.Login_Signal.connect(self.Login_close)
         
         self.Chatting_Send_Button.clicked.connect(self.Chatting_Send)
         self.Chatting.returnPressed.connect(self.Chatting_Send)
@@ -37,6 +42,16 @@ class WindowClass(QMainWindow, form_class):
         self.receive.File_Sending_Signal.connect(self.File_Sending_Slot)
         self.receive.File_End_Signal.connect(self.File_End_Slot)
         self.receive.start()
+        
+    @pyqtSlot(bool)
+    def Login_close(self, Login):
+        print(Login)
+        if Login == False:
+            self.close()
+    
+    def closeEvent(self, event):
+        send_data_header = struct.pack(fmt,b'SF00', 0)
+        self.sock.send(send_data_header)
     
     def File_Send(self):
         file_path = QFileDialog.getOpenFileName(self,'Open file','./')
@@ -128,6 +143,15 @@ class Receive(QThread):
             except Exception as e:
                 print(e)
 
+#친구검색창
+class FriendWindowClass(QDialog,QWidget,Friend_form_class):
+    def __init__(self):
+        super().__init__()
+        self.setupUi(self)
+        self.Friend_Name_Button.clicked.connect()
+        self.Friend_Search_Button.clicked.connect()
+        self.Friend_Accept_Button.clicked.connect()
+
 #회원가입 윈도우 클래스
 class AccessionWindowClass(QDialog,QWidget,Accession_form_class):
     def __init__(self,sock):
@@ -135,7 +159,7 @@ class AccessionWindowClass(QDialog,QWidget,Accession_form_class):
         self.setupUi(self)
         self.sock = sock
         self.Accession_Button.clicked.connect(self.AccessionFunction)
-        self.Receive = Accession_Receive(sock)
+        self.Receive = Accession_Receive(self.sock)
         self.Receive.Accession_Error.connect(self.Error_Slot)
         self.Receive.Accession_Success.connect(self.Success_Slot)
         self.Receive.start()
@@ -155,37 +179,30 @@ class AccessionWindowClass(QDialog,QWidget,Accession_form_class):
     @pyqtSlot(str)
     def Error_Slot(self,error):
         if error == 'I':
-            QMessageBox(self,'알림','아이디 중복')
+            QMessageBox.about(self,'알림','아이디 중복')
         elif error == 'N':
-            QMessageBox(self,'알림','닉네임 중복')
+            QMessageBox.about(self,'알림','닉네임 중복')
     
     @pyqtSlot(str)
     def Success_Slot(self, message):
         if (message == 'S'):
-            QMessageBox(self,'알림','회원가입 성공')
+            QMessageBox.about(self,'알림','회원가입 성공')
             self.close()
-            second_window = Login_Windowclass(self.sock)
-            second_window.exec()
-            second_window.show()
-
-
+            
 class Accession_Receive(QThread):
-    Accession_Error=pyqtSignal(str)
+    Accession_Error = pyqtSignal(str)
     Accession_Success = pyqtSignal(str)
-    
     def __init__(self, sock):
         super().__init__()
         self.sock = sock
-        print(self.sock)
+        
     def run(self):
         while True:
-            print('A')
             try:
                 recv_data_header = self.sock.recv(HEADER_SIZE)
                 header = struct.unpack(fmt,recv_data_header)
-                recvData = self.sock.recv(header[1])
-                print(header)
-                print('받기 완료')
+                recvData=self.sock.recv(header[1])
+                
                 if header[0][0] == 65:
                     print('받기 완료')
                     if header[0][1] == 83:
@@ -197,12 +214,12 @@ class Accession_Receive(QThread):
                         elif header[0][2] == 78:
                             #닉네임 중복
                             Accession_Error.emit('N')
-            
             except Exception as e:
                 print(e)
 
 #로그인 윈도우 클래스
 class Login_Windowclass(QDialog,QWidget,login_form_class):
+    Login_Signal = pyqtSignal(bool)
     def __init__(self,sock):
         super().__init__()
         self.setupUi(self)
@@ -212,8 +229,15 @@ class Login_Windowclass(QDialog,QWidget,login_form_class):
         self.Receive = Login_Receive(sock)
         self.Receive.Login_Signal.connect(self.Login_Slot)
         self.Receive.start()
+        self.Login = False
         self.send_Data = ''
     
+    def closeEvent(self, event):
+        if self.Login == False:
+            self.Login_Signal.emit(False)
+        else:
+            self.Login_Signal.emit(True)
+            
     def LoginSend(self,sock):
         ID_Data = self.ID_Edit.text()
         PW_Data = self.PW_Edit.text()
@@ -224,23 +248,22 @@ class Login_Windowclass(QDialog,QWidget,login_form_class):
             self.sock.send(send_data_header + self.send_Data.encode('utf-8'))
     
     def AccessionSend(self):
-        self.close()
-        Accession = AccessionWindowClass(self.sock)
-        Accession.show()
-        Accession.exec()
+        self.hide()
+        self.Accession = AccessionWindowClass(self.sock)
+        self.Accession.exec()
+        self.Accession.show()
         
-    @pyqtSlot(object)
+    @pyqtSlot(bool)
     def Login_Slot(self,Access):
-        if Access[0] == True:
-            QMessageBox.about(self,'알림','로그인 성공')
+        if Access == True:
+            #QMessageBox.about(self,'알림','로그인 성공')
+            self.Login = True
             self.close()
-            window = WindowClass(self.sock, Access[1])
-            window.show()
-        elif Access[0] == False:
+        elif Access == False:
             QMessageBox.about(self,'알림','로그인 실패')
         
 class Login_Receive(QThread):
-    Login_Signal = pyqtSignal(object)
+    Login_Signal = pyqtSignal(bool)
     
     def __init__(self,sock):
         super().__init__()
@@ -255,9 +278,9 @@ class Login_Receive(QThread):
                 
                 if header[0][0] == 76:
                     if header[0][1] == 83:
-                        self.Login_Signal.emit((True, recvData.decode()))
+                        self.Login_Signal.emit(True)
                     elif header[0][1] == 70:
-                        self.Login_Signal.emit(False, 'Fail')
+                        self.Login_Signal.emit(False)
             except Exception as e:
                 print(e)
 
@@ -266,7 +289,7 @@ clientSock = socket(AF_INET, SOCK_STREAM)
 clientSock.connect(('localhost', port))
 
 app = QApplication(sys.argv)
-window = Login_Windowclass(clientSock)
+window = WindowClass(clientSock)
 window.show()
 app.exec_()
 
