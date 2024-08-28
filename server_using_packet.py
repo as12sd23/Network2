@@ -21,33 +21,31 @@ HEADER_SIZE = 8
 fmt = "=4si"
 fmt_size = struct.calcsize(fmt)
 
-def Another_Sock(MySock):
-    return connection_socket_list[connection_socket_list.index(MySock) -1] 
-
-def send(sock):
-    '''
-    while True:
-        sendData = input('>')
-        sock.send(sendData.encode('utf-8'))
-'''
 class ServerRecv(Thread):
     def __init__(self, sock):
+        super(ServerRecv, self).__init__()
+        self.sock = sock
+        print(self.sock)
+        self.data_list = {}
         try:
-            self.sock = sock
-            self.data_list = []
+            print('A')
             with open("User_data.txt",'r') as f:
                 while True:
                     Data = f.readline()
                     if not Data:
                         break
-                    Data = eval(Data)
-                    print(Data)
-                    self.data_list.append(Data)
-                    
+                    Imsi = Data.split(' : ')
+                    value = Imsi[1].replace('[', '')
+                    value = value.replace(']', '')
+                    value = value.replace(' ', '')
+                    value = value.replace("'", "")
+                    value = value.replace('\n', '')
+                    value = value.split(',')
+                    self.data_list[Imsi[0]] = [value[0], value[1]]
         except Exception as e:
             print(e)
         
-    def Run(self):
+    def run(self):
        while True:
            try:
                recv_data_header = self.sock.recv(HEADER_SIZE)
@@ -70,19 +68,31 @@ class ServerRecv(Thread):
                
                elif header[0][0] == 76:
                    if header[0][1] == 65:
+                       print('진입완료')
                        ID,PW = recvData.decode().split()
+                       print(ID)
+                       print(PW)
                        if ID in self.data_list:
                            DataPW, DataName = self.data_list[ID]
+                           print()
+                           print(DataPW)
+                           print(DataName)
+                           
                            if PW == DataPW:
+                               print('로그인 성공')
                                send_header = struct.pack(fmt,b'LS00', len(DataName.encode('utf-8')))
                                self.sock.send(send_header + DataName.encode('utf-8'))
+                               self.data_list[ID] = [DataPW, DataName, 'O', self.sock]
                            else:
+                               print('로그인 비밀번호 실패')
                                send_header = struct.pack(fmt,b'LF00',0)
                                self.sock.send(send_header)
                                
                        else:
+                           print('로그인 아이디 실패')
                            send_header = struct.pack(fmt,b'LF00',0)
                            self.sock.send(send_header)
+                           print('전송완료')
                
                elif header[0][0] == 65:
                    if header[0][1] == 85:
@@ -97,28 +107,29 @@ class ServerRecv(Thread):
                        if ID in self.data_list:
                            print('아이디 실패')
                            send_header = struct.pack(fmt,b'AFI0',0)
-                           sock.send(send_header)
+                           self.fsock.send(send_header)
                        else:
                            print('1차 통과')
-                           for i in self.data_list.keys():
-                               if NAME == list(self.data_list.values())[i][1]:
-                                   print("이름 딴거 해줭")
-                                   Accept = True
-                                   break
-                               
+                           if len(self.data_list) > 0:
+                               for i in self.data_list.keys():
+                                   if NAME == self.data_list[i][1]:
+                                       print("이름 딴거 해줭")
+                                       Accept = True
+                                       break
+                                   
                            if Accept == True:
                                send_header = struct.pack(fmt,b'AFN0',0)
-                               sock.send(send_header)
+                               self.sock.send(send_header)
                            else:
                                print("회원가입 성공")
-                               User_data_list = {}
-                               User_data_list[ID] = [PW, NAME]
-                               with open("User_data.txt",'a') as f:
-                                   f.write(repr(User_data_list) + "\n")
-                                   print('저장 완료')
-                               self.data_list.append(User_data_list)
+                               data = {}
+                               data[ID] = [PW, NAME]
+                               with open("User_data.txt",'a', encoding='utf-8') as f:
+                                   f.write('{} : {}\n'.format(ID, data[ID]))
+                               self.data_list[ID] = [PW, NAME]
+                               print('저장 완료')
                                send_header = struct.pack(fmt,b'AS00',0)
-                               sock.send(send_header)
+                               self.sock.send(send_header)
                                print('전송 완료')
                            
            except Exception as e:
@@ -136,9 +147,7 @@ while True:
     connection_socket_list.append(connectionSock)
     print(str(addr), '에서 접속 완료')
 
-    sender = Thread(target = send, args = (connectionSock, ))
-    receiver = ServerRecv()
+    receiver = ServerRecv(connectionSock)
 
-    sender.start()
     receiver.start()
 

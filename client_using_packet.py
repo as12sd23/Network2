@@ -22,7 +22,7 @@ Accession_form_class = uic.loadUiType('Accession.ui')[0]
 #메인 윈도우 클래스
 class WindowClass(QMainWindow, form_class):
     def __init__(self, sock, NickName):
-        super().__init__()
+        super(WindowClass, self).__init__()
         self.setupUi(self)
         self.sock = sock
         
@@ -138,6 +138,7 @@ class AccessionWindowClass(QDialog,QWidget,Accession_form_class):
         self.Receive = Accession_Receive(sock)
         self.Receive.Accession_Error.connect(self.Error_Slot)
         self.Receive.Accession_Success.connect(self.Success_Slot)
+        self.Receive.start()
         self.send_Data = b''
     
     def AccessionFunction(self):
@@ -172,17 +173,19 @@ class Accession_Receive(QThread):
     Accession_Error=pyqtSignal(str)
     Accession_Success = pyqtSignal(str)
     
-    def __init__(self,sock):
+    def __init__(self, sock):
         super().__init__()
         self.sock = sock
-    
+        print(self.sock)
     def run(self):
         while True:
+            print('A')
             try:
                 recv_data_header = self.sock.recv(HEADER_SIZE)
                 header = struct.unpack(fmt,recv_data_header)
                 recvData = self.sock.recv(header[1])
-                
+                print(header)
+                print('받기 완료')
                 if header[0][0] == 65:
                     print('받기 완료')
                     if header[0][1] == 83:
@@ -208,6 +211,7 @@ class Login_Windowclass(QDialog,QWidget,login_form_class):
         self.Accession_Button.clicked.connect(self.AccessionSend)
         self.Receive = Login_Receive(sock)
         self.Receive.Login_Signal.connect(self.Login_Slot)
+        self.Receive.start()
         self.send_Data = ''
     
     def LoginSend(self,sock):
@@ -220,23 +224,23 @@ class Login_Windowclass(QDialog,QWidget,login_form_class):
             self.sock.send(send_data_header + self.send_Data.encode('utf-8'))
     
     def AccessionSend(self):
-        self.hide()
+        self.close()
         Accession = AccessionWindowClass(self.sock)
-        Accession.exec()
         Accession.show()
+        Accession.exec()
         
     @pyqtSlot(object)
-    def Login_Slot(self,Access, NickName):
-        if Access == True:
-            QMessageBox(self,'알림','로그인 성공')
+    def Login_Slot(self,Access):
+        if Access[0] == True:
+            QMessageBox.about(self,'알림','로그인 성공')
             self.close()
-            window = WindowClass(self.sock, NickName)
+            window = WindowClass(self.sock, Access[1])
             window.show()
-        elif Access == False:
-            QMessageBox(self,'알림','로그인 실패')
+        elif Access[0] == False:
+            QMessageBox.about(self,'알림','로그인 실패')
         
 class Login_Receive(QThread):
-    Login_Signal = pyqtSignal(bool)
+    Login_Signal = pyqtSignal(object)
     
     def __init__(self,sock):
         super().__init__()
@@ -251,7 +255,7 @@ class Login_Receive(QThread):
                 
                 if header[0][0] == 76:
                     if header[0][1] == 83:
-                        self.Login_Signal.emit(True, recvData.decode())
+                        self.Login_Signal.emit((True, recvData.decode()))
                     elif header[0][1] == 70:
                         self.Login_Signal.emit(False, 'Fail')
             except Exception as e:
