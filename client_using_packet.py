@@ -142,15 +142,67 @@ class Receive(QThread):
                             self.File_End_Signal.emit('파일 전송 완료')
             except Exception as e:
                 print(e)
+'''
+U 친구
+-R 요청                                   -S 검색                           -A 친구 신청된거 주세요
+-L 요청 리스트  -Y 수락  -N 거절           -L 리스트  -R 신청
 
+
+'''
 #친구검색창
 class FriendWindowClass(QDialog,QWidget,Friend_form_class):
-    def __init__(self):
+    def __init__(self, sock):
         super().__init__()
         self.setupUi(self)
-        self.Friend_Name_Button.clicked.connect()
-        self.Friend_Search_Button.clicked.connect()
-        self.Friend_Accept_Button.clicked.connect()
+        self.sock = sock
+        self.Friend_Name_Button.clicked.connect(self.User_Button)
+        self.Friend_Search_Button.clicked.connect(self.User_Search_List)
+        self.Friend_Accept_Button.clicked.connect(self.User_Accept_List)
+        self.Friend_List.itemClicked.connect(self.Friend_ListView)
+        self.Friend_State = False
+        self.Friend_Save_List = []
+    def User_Search_List(self):
+        #U 
+        #-r 찾기
+        self.Friend_Name_Edit.clear()
+        send_data_header = struct.pack(fmt , b'USL0',0)
+        self.sock.send(send_data_header)
+        self.Friend_State = False
+        
+    def User_Accept_List(self):
+        self.Friend_Name_Edit.clear()
+        send_data_header = struct.pack(fmt , b'URL0', 0)
+        self.sock.send(send_data_header)
+        self.Friend_State = True
+        
+    def User_Button(self):
+        Send_NickName = self.Friend_Name_Edit.text()
+        if Send_NickName != '':
+            if self.Friend_State == False:
+                send_data_header = struct.pack(fmt , b'USL0',len(self.Send_NickName.encode('utf-8')))
+                self.sock.send(send_data_header + self.Send_NickName.encode('utf-8'))
+            else:
+                self.Friend_List = 
+            
+    def Friend_ListView(self):
+        friend = self.Friend_List.currentItem()
+        if self.Friend_State == False:
+            friend_event = QMessageBox.question(self,'알림','해당 친구에게 추가 요청을 합니다',
+                                 QMessageBox.Yes | QMessageBox.No)
+            
+            if friend_event == QMessageBox.Yes:
+                self.sock.send(send_data_header+friend.encode('utf-8'))
+        else:
+            friend_event = QMessageBox.question(self,'알림','친구 수락 거절',
+                                 QMessageBox.Yes | QMessageBox.No)
+            
+            if friend_event == QMessageBox.Yes:
+                send_data_header = struct.pack(fmt,b'URY0',len(friend.encode('utf-8')))#친구 요청 보냄
+                self.sock.send(send_data_header + friend.encode('utf-8'))
+            elif friend_event == QMessageBox.No:
+                send_data_header = struct.pack(fmt,b'URN0',len(friend.encode('utf-8')))#친구 요청 보냄
+                self.sock.send(send_data_header+friend.encode('utf-8'))
+            
 
 #회원가입 윈도우 클래스
 class AccessionWindowClass(QDialog,QWidget,Accession_form_class):
