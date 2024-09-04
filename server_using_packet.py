@@ -29,11 +29,32 @@ fmt = "=4si"
 fmt_size = struct.calcsize(fmt)
 
 class ServerRecv(Thread):
-    def __init__(self, sock, DataBase, DB):
+    def __init__(self, sock):
         super().__init__()
         self.sock = sock
-        self.DataBase = DataBase
-        self.DB = DB
+        self.DBconnect = sqlite3.connect('Chatting.db')
+        self.DBcursor = DBconnect.cursor()
+        self.DBcursor.execute("SELECT * FROM sqlite_master WHERE type= 'table';")
+        TableName = self.DBcursor.fetchall()
+        
+        if 'Friends' not in TableName or 'Users' not in TableName:
+            self.DBcursor.execute("CREATE TABLE IF NOT EXISTS users (id TEXT NOT NULL, \
+                    password TEXT NOT NULL, \
+                    name TEXT NOT NULL, \
+                    register_date TEXT NOT NULL)")
+            self.DBcursor.execute("CREATE TABLE IF NOT EXISTS friends (id TEXT NOT NULL,\
+                        You TEXT NOT NULL,\
+                        We_Friend INTEGER, \
+                        Request INTEGER)")
+            '''
+            나중으로 미루자
+            self.DBcursor.execute("CREATE TABLE IF NOT EXISTS state (id TEXT NOT NULL, \
+                                  connection INTEGER, \
+                                  socket TEXT, \
+                                  ")
+                                  '''
+            self.DBcursor.commit()
+        
         
     def run(self):
        while True:
@@ -63,6 +84,10 @@ class ServerRecv(Thread):
                                #친구 요청리스트 주세요
                        elif header[0][2] == 89:
                            #친구 신청 수락할래요
+                           insert_query = '''INSERT INTO friends (id, You, We_Friend, Request)
+                           VALUES (?, ?, ?, ?)
+                           '''
+                           data = ()
                        elif header[0][2] == 78:
                            #친구 신청 거절할래요
                    elif header[0][1] == 83:
@@ -145,8 +170,6 @@ class ServerRecv(Thread):
            except Exception as e:
                print(e) 
 port = 8888
-conn = sqlite3.connect('example.db')
-cursor = conn.cursor()
 
 serverSock = socket(AF_INET, SOCK_STREAM)
 serverSock.bind(('', port))
@@ -157,7 +180,7 @@ print('%d번 포트로 접속 대기중...'%port)
 
 while True:
     connectionSock, addr = serverSock.accept()
-    connection_socket_list.append(connectionSock, cursor, conn)
+    connection_socket_list.append(connectionSock)
     print(str(addr), '에서 접속 완료')
 
     receiver = ServerRecv(connectionSock)
