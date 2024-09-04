@@ -160,7 +160,7 @@ class FriendWindowClass(QDialog,QWidget,Friend_form_class):
         self.Friend_Accept_Button.clicked.connect(self.User_Accept_List)
         self.Friend_List.itemClicked.connect(self.Friend_ListView)
         self.Friend_State = False
-        self.Friend_Save_List = []
+        self.Friend_List_Save = []
     def User_Search_List(self):
         #U 
         #-r 찾기
@@ -203,7 +203,31 @@ class FriendWindowClass(QDialog,QWidget,Friend_form_class):
                 send_data_header = struct.pack(fmt,b'URN0',len(friend.encode('utf-8')))#친구 요청 보냄
                 self.sock.send(send_data_header+friend.encode('utf-8'))
             
-
+class Friend_Receive(QThread):
+    def __init__(self, sock):
+        super().__init__()
+        self.sock = sock
+    
+    def run(self):
+        while True:
+            try:
+                recv_data_header = self.sock.recv(HEADER_SIZE)
+                header = struct.unpack(fmt, recv_data_header)
+                recvData = self.sock.recv(header[1])
+                
+                if header[0][0] = 85:
+                    if header[0][1] == 82:
+                        if header[0][2] == 76:
+                            #요청 리스트 주는거
+                            
+                    elif header[0][1] == 83:
+                        if header[0][2] == 76:
+                            # 검색 리스트 주는거
+                    elif header[0][1] == 65:
+                        if header[0][2] == 76:
+                            # 친구 신청 리스트 주는거
+            except Exception as e:
+                print(e)
 #회원가입 윈도우 클래스
 class AccessionWindowClass(QDialog,QWidget,Accession_form_class):
     def __init__(self,sock):

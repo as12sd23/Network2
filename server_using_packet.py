@@ -16,7 +16,13 @@ connection_socket_list = []
  6
  7
 '''
+'''
+U 친구
+-R 요청                                   -S 검색                           -A 친구 신청된거 주세요
+-L 요청 리스트  -Y 수락  -N 거절           -L 리스트  -R 신청                 -S 주고 -R 받기
+-S 주고 -R 받기
 
+'''
 HEADER_SIZE = 8
 
 fmt = "=4si"
@@ -49,12 +55,28 @@ class ServerRecv(Thread):
                elif header[0][0] == 102:
                    another_socket = Another_Sock(sock)
                    another_socket.send(recv_data_header+recvData)
+                   
+               elif header[0][0] == 85:
+                   if header[0][1] == 82:
+                       if header[0][2] == 76:
+                           if header[0][3] == 82:
+                               #친구 요청리스트 주세요
+                       elif header[0][2] == 89:
+                           #친구 신청 수락할래요
+                       elif header[0][2] == 78:
+                           #친구 신청 거절할래요
+                   elif header[0][1] == 83:
+                       if header[0][2] == 76:
+                           if header[0][3] == 82:
+                               #검색 리스트 주세요
+                       elif header[0][2] == 82:
+                           #친구 신청 할래요
                
                elif header[0][0] == 76:
                    if header[0][1] == 65:
                        print('진입완료')
                        ID,PW = recvData.decode().split()
-                       select_Login = 'SELECT *FROM users WHERE id = ?'
+                       select_Login = 'SELECT * FROM users WHERE id = ?'
                        self.DataBase.execute(select_Login, ('ID', ))
                        row = self.DataBase.fetchone()
                        
