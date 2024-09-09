@@ -41,7 +41,7 @@ class ServerRecv(Thread):
             self.DBcursor.execute("CREATE TABLE IF NOT EXISTS users (id TEXT NOT NULL, \
                     password TEXT NOT NULL, \
                     name TEXT NOT NULL, \
-                    register_date TEXT NOT NULL)")
+                    socket TEXT NOT NULL)")
             self.DBcursor.execute("CREATE TABLE IF NOT EXISTS friends (id TEXT NOT NULL,\
                         You TEXT NOT NULL,\
                         We_Friend INTEGER, \
@@ -61,7 +61,7 @@ class ServerRecv(Thread):
            try:
                recv_data_header = self.sock.recv(HEADER_SIZE)
                header = struct.unpack(fmt, recv_data_header)
-               recvData = self.sock.recv(header[1])
+               recvData = self.sock.recv(header[1]).decode()
                print(header)
                print(recvData)
            
@@ -82,20 +82,28 @@ class ServerRecv(Thread):
                        if header[0][2] == 76:
                            if header[0][3] == 82:
                                #친구 요청리스트 주세요
+                               self.DataBase.execute("SELECT * FROM users WHERE socket = '%s"%self.sock)
+                               Imsi_id = self.DataBase.fetchone()
+                               self.DataBase.execute("SELECT *")
                        elif header[0][2] == 89:
                            #친구 신청 수락할래요
-                           insert_query = '''INSERT INTO friends (id, You, We_Friend, Request)
-                           VALUES (?, ?, ?, ?)
-                           '''
-                           data = ()
+                           self.DataBase.execute("SELECT * FROM users WHERE socket = '%s"%self.sock)
+                           Imsi_id = self.DataBase.fetchone()
+                           self.DataBase.execute("UPDATE friends SET We_Friend = :friend WHERE (id = '%s' AND You = '%s') OR (id = '%s' AND You = '%s')"%(1, Imsi_id[0], recvData, recvData, Imsi_id[0]))
+                           
                        elif header[0][2] == 78:
                            #친구 신청 거절할래요
+                           self.DataBase.execute("SELECT * FROM users WHERE socket = '%s"%self.sock)
+                           Imsi_id = self.DataBase.fetchone()
+                           self.DataBase.execute("DELETE FROM friends WHERE (id = '%s' AND You = '%s') OR (id = '%s' AND You = '%s')"%(Imsi_id[0], recvData, recvData, Imsi_id[0]))
                    elif header[0][1] == 83:
                        if header[0][2] == 76:
                            if header[0][3] == 82:
                                #검색 리스트 주세요
                        elif header[0][2] == 82:
                            #친구 신청 할래요
+                           data = ()
+                           self.DataBase.excute("INSERT INTO friends (id, You, We_Friend, Request) VALUES (?, ?, ?, ?)", (Imsi_id[0], recvData, 0, 1))
                
                elif header[0][0] == 76:
                    if header[0][1] == 65:
@@ -108,6 +116,9 @@ class ServerRecv(Thread):
                        if row:
                            if PW == row[2]:
                                print('로그인 성공')
+                               self.DataBase.execute("UPDATE users SET socket = :sock WHERE id = :id", {'sock' : self.sock, 'id' : ID})
+                               Datasave = self.DataBase.fetchone()
+                               self
                                send_header = struct.pack(fmt,b'LS00', len(row[0].encode('utf-8')))
                                self.sock.send(send_header + row[0].encode('utf-8'))
                            else:
