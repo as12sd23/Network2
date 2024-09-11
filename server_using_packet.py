@@ -18,8 +18,8 @@ connection_socket_list = []
 '''
 '''
 U 친구
--R 요청                                   -S 검색                           -A 친구 신청된거 주세요
--L 요청 리스트  -Y 수락  -N 거절           -L 리스트  -R 신청                 -S 주고 -R 받기
+-R 요청                                   -S 검색                           -A 친구 신청된거 주세요         -I 알림왔어요
+-L 요청 리스트  -Y 수락  -N 거절           -L 리스트  -R 신청                -S 주고 -R 받기                 -R 친구 신청 
 -S 주고 -R 받기
 
 '''
@@ -38,14 +38,14 @@ class ServerRecv(Thread):
         TableName = self.DBcursor.fetchall()
         
         if 'Friends' not in TableName or 'Users' not in TableName:
-            self.DBcursor.execute("CREATE TABLE IF NOT EXISTS users (id TEXT NOT NULL, \
+            self.DBcursor.execute("CREATE TABLE IF NOT EXISTS users (id primary key, \
                     password TEXT NOT NULL, \
                     name TEXT NOT NULL, \
-                    socket TEXT NOT NULL)")
+                    socket TEXT NOT NULL);")
             self.DBcursor.execute("CREATE TABLE IF NOT EXISTS friends (id TEXT NOT NULL,\
                         You TEXT NOT NULL,\
                         We_Friend INTEGER, \
-                        Request INTEGER)")
+                        Request INTEGER);")
             '''
             나중으로 미루자
             self.DBcursor.execute("CREATE TABLE IF NOT EXISTS state (id TEXT NOT NULL, \
@@ -77,48 +77,82 @@ class ServerRecv(Thread):
                    another_socket = Another_Sock(sock)
                    another_socket.send(recv_data_header+recvData)
                    
+               elif header[0][0] == 83:
+                   if header[0][1] == 70:
+                       #로그아웃
+                       self.DataBase.execute("SELECT * FROM users WHERE socket = '%s';"%self.sock)
+                       Imsi_id = self.DataBase.fetchone()
+                       self.DataBase.execute("SELECT * FROM friends WHERE We_Friend = '%s' AND id = '%s';"%(1, Imsi_id[0]))
+                       Imsi_ids = self.DataBase.fetchall()
+                       
+                       for i in Imsi_ids:
+                           send_header = struct.pack(fmt,b'SF00', len((Imsi_id[0], Imsi_id[2]).encode('utf-8')))
+                           self.sock.send(send_header + len((Imsi_id[0], Imsi_id[2]).encode('utf-8')))
+                           
+                       
+                       self.DataBase.execute("SELECT * FROM friends WHERE We_Friend = '%s' AND You = '%s';"%(1, Imsi_id))
+                       Imsi_ids = self.DataBase.fetchall()
+                       
+                       for i in Imsi_ids:
+                           send_header = struct.pack(fmt,b'SF00', len((Imsi_id[0], Imsi_id[2]).encode('utf-8')))
+                           self.sock.send(send_header + len((Imsi_id[0], Imsi_id[2]).encode('utf-8')))
+                       
+                        self.DataBase.execute("UPDATE users SET socket = '%s' WEHRE socket = '%s';"%('', self.sock))
+                        self.DBcursor.commit()
+                        
                elif header[0][0] == 85:
                    if header[0][1] == 82:
                        if header[0][2] == 76:
                            if header[0][3] == 82:
                                #친구 요청리스트 주세요
-                               self.DataBase.execute("SELECT * FROM users WHERE socket = '%s"%self.sock)
+                               self.DataBase.execute("SELECT * FROM users WHERE socket = '%s';"%self.sock)
                                Imsi_id = self.DataBase.fetchone()
-                               self.DataBase.execute("SELECT *")
+                               self.DataBase.execute("SELECT * FROM friends WEHRE id = '&s' OR You = '%s';"%(Imsi_id[0], Imsi_id[0]))
+                               Imsi_friend = self.DataBase.fetchone()
+                               send_header = struct.pack(fmt,b'URL0', len(Imsi_friend.encode('utf-8')))
+                               self.sock.send(send_header + Imsi_friend.encode('utf-8'))
                        elif header[0][2] == 89:
                            #친구 신청 수락할래요
-                           self.DataBase.execute("SELECT * FROM users WHERE socket = '%s"%self.sock)
+                           self.DataBase.execute("SELECT * FROM users WHERE socket = '%s';"%self.sock)
                            Imsi_id = self.DataBase.fetchone()
-                           self.DataBase.execute("UPDATE friends SET We_Friend = :friend WHERE (id = '%s' AND You = '%s') OR (id = '%s' AND You = '%s')"%(1, Imsi_id[0], recvData, recvData, Imsi_id[0]))
-                           
+                           self.DataBase.execute("UPDATE friends SET We_Friend = '%s' WHERE (id = '%s' AND You = '%s') OR (id = '%s' AND You = '%s');"%(1, Imsi_id[0], recvData, recvData, Imsi_id[0]))
+                           self.DBcursor.commit()
                        elif header[0][2] == 78:
                            #친구 신청 거절할래요
-                           self.DataBase.execute("SELECT * FROM users WHERE socket = '%s"%self.sock)
+                           self.DataBase.execute("SELECT * FROM users WHERE socket = '%s';"%self.sock)
                            Imsi_id = self.DataBase.fetchone()
-                           self.DataBase.execute("DELETE FROM friends WHERE (id = '%s' AND You = '%s') OR (id = '%s' AND You = '%s')"%(Imsi_id[0], recvData, recvData, Imsi_id[0]))
+                           self.DataBase.execute("DELETE FROM friends WHERE (id = '%s' AND You = '%s') OR (id = '%s' AND You = '%s');"%(Imsi_id[0], recvData, recvData, Imsi_id[0]))
+                           self.DBcursor.commit()
                    elif header[0][1] == 83:
                        if header[0][2] == 76:
                            if header[0][3] == 82:
                                #검색 리스트 주세요
+                               if recvData != '':
+                                   self.DataBase.execute("SELECT * FROM users WHERE name '%s';"%recvData)
+                                   Imsi_name = self.DataBase.fetchall()
+                               else:
+                                   self.DataBase.execute("SELECT (id, name) FROM users LIMIT 25;")    
+                                   Imsi_name = self.DataBase.fetchall()
+                               send_header = struct.pack(fmt,b'USL0', len(Imsi_name.encode('utf-8')))
+                               self.sock.send(send_header + Imsi_name.encode('utf-8'))
                        elif header[0][2] == 82:
                            #친구 신청 할래요
-                           data = ()
-                           self.DataBase.excute("INSERT INTO friends (id, You, We_Friend, Request) VALUES (?, ?, ?, ?)", (Imsi_id[0], recvData, 0, 1))
-               
+                           ID, You = recvData.split()
+                           self.DataBase.excute("INSERT INTO friends (id, You, We_Friend, Request) VALUES (?, ?, ?, ?);", (Imsi_id[0], recvData, 0, 1))
+                           self.DBcursor.commit()
                elif header[0][0] == 76:
                    if header[0][1] == 65:
                        print('진입완료')
-                       ID,PW = recvData.decode().split()
-                       select_Login = 'SELECT * FROM users WHERE id = ?'
-                       self.DataBase.execute(select_Login, ('ID', ))
+                       ID,PW = recvData.split()
+                       select_Login = 'SELECT * FROM users WHERE id = ?;'
+                       self.DataBase.execute(select_Login, 'ID')
                        row = self.DataBase.fetchone()
                        
                        if row:
                            if PW == row[2]:
                                print('로그인 성공')
-                               self.DataBase.execute("UPDATE users SET socket = :sock WHERE id = :id", {'sock' : self.sock, 'id' : ID})
+                               self.DataBase.execute("UPDATE users SET socket = :sock WHERE id = :id;", {'sock' : self.sock, 'id' : ID})
                                Datasave = self.DataBase.fetchone()
-                               self
                                send_header = struct.pack(fmt,b'LS00', len(row[0].encode('utf-8')))
                                self.sock.send(send_header + row[0].encode('utf-8'))
                            else:
@@ -136,7 +170,7 @@ class ServerRecv(Thread):
                        print('받기 완료')
                        ID,PW,NAME = recvData.decode().split()
                        Accept = False
-                       select_ID = 'SELECT id FROM users'
+                       select_ID = 'SELECT id FROM users;'
                        self.DataBase.execute(select_ID)
                        ids = self.DataBase.fetchall()
                        #여기서 회원가입 아이디 비번 연결 성공 체크
@@ -149,7 +183,7 @@ class ServerRecv(Thread):
                        
                        if Accept == False:
                            print('1차 통과')
-                           select_query = 'SELECT name FROM users'
+                           select_query = 'SELECT name FROM users;'
                            
                            self.DataBase.execute(select_query)
                            names = self.DataBase.fetchall()
@@ -168,7 +202,7 @@ class ServerRecv(Thread):
                                
                                Insert_query = '''
                                INSERT INTO users (name, id, password)
-                               VALUES (?, ?, ?)
+                               VALUES (?, ?, ?);
                                '''
                                data = (ID, NAME, PW)
                                self.DataBase.execute(Insert_query, data)
