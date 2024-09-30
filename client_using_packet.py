@@ -43,6 +43,9 @@ class WindowClass(QMainWindow, form_class):
         self.receive.File_End_Signal.connect(self.File_End_Slot)
         self.receive.start()
         
+        struct_header.pack = (fmt, b'UU00', 0)
+        self.sock.send(struct_header)
+        
     @pyqtSlot(bool)
     def Login_close(self, Login):
         print(Login)
@@ -121,9 +124,12 @@ class Receive(QThread):
             try:
                 recv_data_header = self.sock.recv(HEADER_SIZE)
                 header = struct.unpack(fmt,recv_data_header)
-                recvData = self.sock.recv(header[1])
+                recvData = self.sock.recv(header[1].decode())
                 
-                if header[0][0] == 109:
+                if header[0][0] == 85:
+                    if header[0][1] == 85:
+                        print(recvData)
+                elif header[0][0] == 109:
                     if header[0][1] == 112:
                         self.Chatting_Signal.emit(recvData.decode())
                 elif header[0][0]==102:
@@ -182,7 +188,7 @@ class FriendWindowClass(QDialog,QWidget,Friend_form_class):
                 send_data_header = struct.pack(fmt , b'USL0',len(self.Send_NickName.encode('utf-8')))
                 self.sock.send(send_data_header + self.Send_NickName.encode('utf-8'))
             else:
-                self.Friend_List = 
+                pass
             
     def Friend_ListView(self):
         friend = self.Friend_List.currentItem()
@@ -213,19 +219,22 @@ class Friend_Receive(QThread):
             try:
                 recv_data_header = self.sock.recv(HEADER_SIZE)
                 header = struct.unpack(fmt, recv_data_header)
-                recvData = self.sock.recv(header[1])
+                recvData = self.sock.recv(header[1].decode())
+                print(recvData)
                 
-                if header[0][0] = 85:
+                if header[0][0] == 85:
                     if header[0][1] == 82:
                         if header[0][2] == 76:
                             #요청 리스트 주는거
-                            
+                            pass
                     elif header[0][1] == 83:
                         if header[0][2] == 76:
                             # 검색 리스트 주는거
+                            pass
                     elif header[0][1] == 65:
                         if header[0][2] == 76:
                             # 친구 신청 리스트 주는거
+                            pass
             except Exception as e:
                 print(e)
 #회원가입 윈도우 클래스
@@ -360,7 +369,7 @@ class Login_Receive(QThread):
             except Exception as e:
                 print(e)
 
-port = 8888
+port = 8080
 clientSock = socket(AF_INET, SOCK_STREAM)
 clientSock.connect(('localhost', port))
 
