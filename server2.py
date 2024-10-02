@@ -4,6 +4,8 @@ import time
 import sqlite3
 import struct
 import datetime
+import os
+import sys
 connection_socket_list = []
 
 '''
@@ -205,13 +207,18 @@ class ServerRecv(Thread):
                     if header[0][1] == 65:
                         print('진입완료')
                         ID, PW = recvData.split()
-                        self.DBcursor.execute(
-                            "SELECT EXIST ( SELECT * FROM users WHERE id = '%s' AND password = '%s');" % (ID, PW))
+                        
+                        self.DBcursor.execute("SELECT id FROM users WHERE id LIKE '%s';" %ID)
+                        DB_id = self.DBcursor.fetchone()
+                        
+                        self.DBcursor.execute("SELECT password FROM users WHERE id LIKE '%s';" %PW)
+                        DB_pw = self.DBcursor.fetchone()
+                        
 
-                        if self.DBcursor.fetchone() == 1:
+                        if ID == DB_id:
                             print('로그인 성공')
                             self.DBcursor.execute(
-                                "UPDATE users SET socket = :sock WHERE id = : ;", {self.sock, ID})
+                                "UPDATE users SET socket = '%s' WHERE id = : '%s';"%(self.sock, ID))
                             send_header = struct.pack(
                                 fmt, b'LS00', len(row[0].encode('utf-8')))
                             self.sock.send(
@@ -227,12 +234,12 @@ class ServerRecv(Thread):
                     # 여기서 회원가입 아이디 비번 연결 성공 체크
                         ID, PW, NAME = recvData.split()
                         self.DBcursor.execute(
-                            "SELECT EXISTS (SELECT * FROM users WHERE id = '%s');" % ID)
-                        if self.DBcursor.fetchall() == 0:
+                            "SELECT id FROM users WHERE id LIKE '%s';" %ID)
+                        if not self.DBcursor.fetchall():
                             print('1차 통과')
                             self.DBcursor.execute(
-                                "SELECT EXISTS (SELECT * FROM users WHERE name = '%s';" % NAME)
-                            if self.DBcursor.fetchall() == 0:
+                                "SELECT name FROM users WHERE name LIKE = '%s';" %NAME)
+                            if not self.DBcursor.fetchall():
                                 print("회원가입 성공")
                                 self.DBcursor.execute(
                                     "INSERT INTO users (id, password, name) VALUES (?,?,?);", (ID, PW, NAME))
@@ -250,7 +257,12 @@ class ServerRecv(Thread):
                             self.sock.send(send_header)
 
             except Exception as e:
-                print(e)
+                exc_type, exc_obj, exc_tb = sys.exc_info()
+                fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+                print(f'file name: {str(fname)}')
+                print(f'error type: {str(exc_type)}')
+                print(f'error msg: {str(e)}')
+                print(f'line number: {str(exc_tb.tb_lineno)}')
 
 
 port = 8080
