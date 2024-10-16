@@ -43,7 +43,7 @@ class ServerRecv(Thread):
         super().__init__()
         self.sock = sock
         self.DBconnect = sqlite3.connect(
-            './Chatting.db', check_same_thread=False)
+            './Chatting2.db', check_same_thread=False)
         self.DBcursor = self.DBconnect.cursor()
         self.DBcursor.execute(
             "SELECT * FROM sqlite_master WHERE type= 'table';")
@@ -62,6 +62,9 @@ class ServerRecv(Thread):
                         chat TEXT NOT NULL, \
                         Date int, \
                         Time int);")
+        self.DBcursor.execute("SELECT * FROM users")
+        A = self.DBcursor.fetchall()
+        print(A)
 
     def run(self):
         while True:
@@ -107,23 +110,23 @@ class ServerRecv(Thread):
                         self.DBcursor.execute(
                             "SELECT * FROM users WHERE socket = '%s';" % self.sock)
                         Imsi_id = self.DBcursor.fetchall()
-                        self.DBcursor.execute(
-                            "SELECT You FROM friends WHERE We_Friend = '%s' AND id = '%s';" % ('F', Imsi_id[0]))
-                        Imsi_ids = self.DBcursor.fetchall()
-
-                        for i in Imsi_ids:
+                        if not Imsi_id:
+                            pass
+                            #그냥 종료
+                        else:
                             self.DBcursor.execute(
-                                "SELECT sock FROM users WHERE id = '%s';" % i)
-                            Imsi_sock = self.DBcursor.fetchall()
-                            if Imsi_sock != '':
-                                send_header = struct.pack(
-                                    fmt, b'SF00', len(Imsi_id[2].encode('utf-8')))
-                                Imsi_sock.send(
-                                    send_header + Imsi_id[2].encode('utf-8'))
+                                "SELECT You FROM friends WHERE We_Friend = '%s' AND id = '%s';" % ('F', Imsi_id[0]))
+                            Imsi_ids = self.DBcursor.fetchall()
 
-                        self.DBcursor.execute(
-                            "UPDATE users SET socket = '%s' WEHRE socket = '%s';" % ('', self.sock))
-                        self.DBcursor.commit()
+                            for i in Imsi_ids:
+                                self.DBcursor.execute(
+                                    "SELECT sock FROM users WHERE id = '%s';" % i)
+                                Imsi_sock = self.DBcursor.fetchall()
+                                if Imsi_sock != '':
+                                    send_header = struct.pack(fmt, b'SF00', len(Imsi_id[2].encode('utf-8')))
+                                    Imsi_sock.send(send_header + Imsi_id[2].encode('utf-8'))
+                            self.DBcursor.execute("UPDATE users SET socket = '%s' WEHRE id = '%s';" % (self.sock, Imsi_ids))
+                            self.DBcursor.commit()
 
                 elif header[0][0] == 85:
                     if header[0][1] == 85:
@@ -202,31 +205,34 @@ class ServerRecv(Thread):
                             You_id = self.DBcursor.fetchall()
                             self.DBcursor.excute(
                                 "INSERT INTO friends (id, You, We_Friend) VALUES (?, ?, ?);", (Imsi_id, You_id, 'P'))
-
+                            self.DBcursor.commit()
+                            
                 elif header[0][0] == 76:
                     if header[0][1] == 65:
                         print('진입완료')
                         ID, PW = recvData.split()
                         
-                        self.DBcursor.execute("SELECT id FROM users WHERE id LIKE '%s';" %ID)
+                        self.DBcursor.execute("SELECT * FROM users WHERE id = '%s';" %ID)
                         DB_id = self.DBcursor.fetchone()
-                        
-                        self.DBcursor.execute("SELECT password FROM users WHERE id LIKE '%s';" %PW)
-                        DB_pw = self.DBcursor.fetchone()
-                        
-
-                        if ID == DB_id:
+                        print(DB_id)
+                        print(ID)
+                        print(PW)
+                        if not DB_id:
+                            print('로그인 아이디 실패')
+                            send_header = struct.pack(fmt, b'LF00', 0)
+                            self.sock.send(send_header)
+                        elif PW == DB_id[1]:
                             print('로그인 성공')
-                            self.DBcursor.execute(
-                                "UPDATE users SET socket = '%s' WHERE id = : '%s';"%(self.sock, ID))
+                            self.DBcursor.execute("SELECT * FROM users WHERE id = '%s';"%ID)
+                            ABC = self.DBcursor.fetchall()
+                            print(ABC)
+                            print(self.sock)
+                            self.DBcursor.execute("UPDATE users SET socket = '" + self.sock + "' WHERE id = '" + ID + "';")
+                            self.DBcursor.commit()
                             send_header = struct.pack(
                                 fmt, b'LS00', len(row[0].encode('utf-8')))
                             self.sock.send(
                                 send_header + row[0].encode('utf-8'))
-                        else:
-                            print('로그인 아이디 실패')
-                            send_header = struct.pack(fmt, b'LF00', 0)
-                            self.sock.send(send_header)
 
                 elif header[0][0] == 65:
                     if header[0][1] == 85:
@@ -237,13 +243,13 @@ class ServerRecv(Thread):
                             "SELECT id FROM users WHERE id LIKE '%s';" %ID)
                         if not self.DBcursor.fetchall():
                             print('1차 통과')
-                            self.DBcursor.execute(
-                                "SELECT name FROM users WHERE name LIKE = '%s';" %NAME)
+                            self.DBcursor.execute("SELECT name FROM users WHERE name = '%s';" %NAME)
                             if not self.DBcursor.fetchall():
                                 print("회원가입 성공")
-                                self.DBcursor.execute(
-                                    "INSERT INTO users (id, password, name) VALUES (?,?,?);", (ID, PW, NAME))
-
+                                self.DBcursor.execute("INSERT INTO users (id, password, name) VALUES ('%s', '%s', '%s');"%(ID, PW, NAME))
+                                self.DBcursor.execute("SELECT * FROM users")
+                                A = self.DBcursor.fetchall()
+                                print(A)
                                 send_header = struct.pack(fmt, b'AS00', 0)
                                 self.sock.send(send_header)
                                 print('전송 완료')
