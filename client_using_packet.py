@@ -43,7 +43,7 @@ class WindowClass(QMainWindow, form_class):
         self.receive.File_End_Signal.connect(self.File_End_Slot)
         self.receive.start()
         
-        struct_header.pack = (fmt, b'UU00', 0)
+        struct_header = struct.pack(fmt, b'UU00', 0)
         self.sock.send(struct_header)
         
     @pyqtSlot(bool)
