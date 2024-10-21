@@ -39,11 +39,12 @@ fmt_size = struct.calcsize(fmt)
 
 
 class ServerRecv(Thread):
-    def __init__(self, sock):
+    def __init__(self, sock, addr):
         super().__init__()
         self.sock = sock
+        self.addr = addr
         self.DBconnect = sqlite3.connect(
-            './Chatting2.db', check_same_thread=False)
+            './Chatting3.db', check_same_thread=False)
         self.DBcursor = self.DBconnect.cursor()
         self.DBcursor.execute(
             "SELECT * FROM sqlite_master WHERE type= 'table';")
@@ -54,14 +55,18 @@ class ServerRecv(Thread):
                     password TEXT NOT NULL, \
                     name TEXT NOT NULL, \
                     socket TEXT);")
+            self.DBconnect.commit()
             self.DBcursor.execute("CREATE TABLE IF NOT EXISTS friends (id TEXT NOT NULL, \
                         You TEXT NOT NULL, \
                         We_Friend TEXT NOT NULL);")
+            self.DBconnect.commit()
             self.DBcursor.execute("CREATE TABLE IF NOT EXISTS chatting (id TEXT NOT NULL, \
                         You TEXT NOT NULL, \
                         chat TEXT NOT NULL, \
                         Date int, \
                         Time int);")
+            self.DBconnect.commit()
+            
         self.DBcursor.execute("SELECT * FROM users")
         A = self.DBcursor.fetchall()
         print(A)
@@ -83,7 +88,7 @@ class ServerRecv(Thread):
                         print('개인용 메세지', recvData)
                         recvData = recvData.split(':')
                         self.DBcursor.execute(
-                            "SELECT * FROM users WHERE sock = '%s';", self.sock)
+                            "SELECT * FROM users WHERE sock = '%s';", self.addr)
                         self.DBcursor.fetchall()
 
                         self.DBcursor.execute(
@@ -92,7 +97,7 @@ class ServerRecv(Thread):
 
                         self.DBcursor.execute("INSERT INTO chatting (id, You, chat, Date, Time) VALUES (?, ?, ?, ?, ?);", (
                             my_id[0], you_sock[0], recvData[1], self.Date, self.Time))
-
+                        self.DBconnect.commit()
                         if my_sock[3] != '':
                             send_header = struct.pack(fmt, b'SF00', len(
                                 my_id[2]+":"+recvData[1].encode('utf-8')))
@@ -108,7 +113,7 @@ class ServerRecv(Thread):
                     if header[0][1] == 70:
                         # 로그아웃
                         self.DBcursor.execute(
-                            "SELECT * FROM users WHERE socket = '%s';" % self.sock)
+                            "SELECT * FROM users WHERE socket = '%s';" % self.addr)
                         Imsi_id = self.DBcursor.fetchall()
                         if not Imsi_id:
                             pass
@@ -125,14 +130,14 @@ class ServerRecv(Thread):
                                 if Imsi_sock != '':
                                     send_header = struct.pack(fmt, b'SF00', len(Imsi_id[2].encode('utf-8')))
                                     Imsi_sock.send(send_header + Imsi_id[2].encode('utf-8'))
-                            self.DBcursor.execute("UPDATE users SET socket = '%s' WEHRE id = '%s';" % (self.sock, Imsi_ids))
-                            self.DBcursor.commit()
+                            self.DBcursor.execute("UPDATE users SET socket = '%s' WEHRE id = '%s';" %(self.addr, Imsi_ids))
+                            self.DBconnect.commit()
 
                 elif header[0][0] == 85:
                     if header[0][1] == 85:
                         # 친구 리스트 주세요
                         self.DBcursor.execute(
-                            "SELECT id FROM users WHERE socket = '%s';" % self.sock)
+                            "SELECT id FROM users WHERE socket = '%s';" % self.addr)
                         Imsi_id = self.DBcursor.fetchall()
                         self.DBcursor.execute(
                             "SELECT You FROM friends WHERE id '%s' AND We_Friend = '%s';" % (Imsi_id, 'F'))
@@ -147,7 +152,7 @@ class ServerRecv(Thread):
                             if header[0][3] == 82:
                                 # 친구 요청리스트 주세요
                                 self.DBcursor.execute(
-                                    "SELECT id FROM users WHERE socket = '%s';" % self.sock)
+                                    "SELECT id FROM users WHERE socket = '%s';" % self.addr)
                                 Imsi_id = self.DBcursor.fetchall()
                                 self.DBcursor.execute(
                                     "SELECT * FROM friends WEHRE You = '&s' AND We_Friend = '%s';" % (Imsi_id, 'A'))
@@ -159,7 +164,7 @@ class ServerRecv(Thread):
                         elif header[0][2] == 89:
                             # 친구 신청 수락할래요
                             self.DBcursor.execute(
-                                "SELECT id FROM users WHERE socket = '%s';" % self.sock)
+                                "SELECT id FROM users WHERE socket = '%s';" % self.addr)
                             Imsi_id = self.DBcursor.fetchall()
                             self.DBcursor.execute(
                                 "SELECT id FROM users WHERE name = '%s';" % recvData)
@@ -168,17 +173,19 @@ class ServerRecv(Thread):
                                 'F', You_id, Imsi_id, 'P'))
                             self.DBcursor.execute(
                                 "INSERT INTO friends (id, You, We_Friend) VALUES (?, ?, ?);", (Imsi_id, You_id, 'P'))
+                            self.DBconnect.commit()
                         elif header[0][2] == 78:
                             # 친구 신청 거절할래요
                             self.DBcursor.execute(
-                                "SELECT id FROM users WHERE socket = '%s';" % self.sock)
+                                "SELECT id FROM users WHERE socket = '%s';" % self.addr)
                             Imsi_id = self.DBcursor.fetchall()
                             self.DBcursor.execute(
                                 "SELECT id FROM users WHERE name = '%s';" % recvData)
                             You_id = self.DBcursor.fetchall()
                             self.DBcursor.execute(
                                 "DELETE FROM friends WHERE id = '%s' AND You = '%s' AND We_Friend = '%s';" % (Imsi_id, You_id, 'P'))
-
+                            self.DBconnect.commit()
+                            
                     elif header[0][1] == 83:
                         if header[0][2] == 76:
                             if header[0][3] == 82:
@@ -198,14 +205,14 @@ class ServerRecv(Thread):
                         elif header[0][2] == 82:
                             # 친구 신청 할래요
                             self.DBcursor.execute(
-                                "SELECT id FROM users WHERE socket = '%s';" % self.sock)
+                                "SELECT id FROM users WHERE socket = '%s';" % self.addr)
                             Imsi_id = self.DBcursor.fetchall()
                             self.DBcursor.execute(
                                 "SELECT id FROM users WHERE name = '%s';" % recvData)
                             You_id = self.DBcursor.fetchall()
                             self.DBcursor.excute(
                                 "INSERT INTO friends (id, You, We_Friend) VALUES (?, ?, ?);", (Imsi_id, You_id, 'P'))
-                            self.DBcursor.commit()
+                            self.DBconnect.commit()
                             
                 elif header[0][0] == 76:
                     if header[0][1] == 65:
@@ -228,7 +235,7 @@ class ServerRecv(Thread):
                             print(ABC)
                             print(self.sock)
                             self.DBcursor.execute("UPDATE users SET socket = '" + self.sock + "' WHERE id = '" + ID + "';")
-                            self.DBcursor.commit()
+                            self.DBconnect.commit()
                             send_header = struct.pack(
                                 fmt, b'LS00', len(row[0].encode('utf-8')))
                             self.sock.send(
@@ -247,6 +254,7 @@ class ServerRecv(Thread):
                             if not self.DBcursor.fetchall():
                                 print("회원가입 성공")
                                 self.DBcursor.execute("INSERT INTO users (id, password, name) VALUES ('%s', '%s', '%s');"%(ID, PW, NAME))
+                                self.DBconnect.commit()
                                 self.DBcursor.execute("SELECT * FROM users")
                                 A = self.DBcursor.fetchall()
                                 print(A)
@@ -285,6 +293,6 @@ while True:
     connection_socket_list.append(connectionSock)
     print(str(addr), '에서 접속 완료')
 
-    receiver = ServerRecv(connectionSock)
+    receiver = ServerRecv(connectionSock, addr)
 
     receiver.start()

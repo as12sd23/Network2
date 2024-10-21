@@ -372,7 +372,7 @@ class Login_Receive(QThread):
 port = 8080
 clientSock = socket(AF_INET, SOCK_STREAM)
 clientSock.connect(('localhost', port))
-
+print(clientSock)
 app = QApplication(sys.argv)
 window = WindowClass(clientSock)
 window.show()
