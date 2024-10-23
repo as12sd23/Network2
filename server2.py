@@ -44,17 +44,22 @@ class ServerRecv(Thread):
         self.sock = sock
         self.addr = addr
         self.DBconnect = sqlite3.connect(
-            './Chatting3.db', check_same_thread=False)
+            './Chatting4.db', check_same_thread=False)
         self.DBcursor = self.DBconnect.cursor()
         self.DBcursor.execute(
             "SELECT * FROM sqlite_master WHERE type= 'table';")
         TableName = self.DBcursor.fetchall()
 
         if 'Friends' not in TableName or 'Users' not in TableName:
-            self.DBcursor.execute("CREATE TABLE IF NOT EXISTS users (id primary key, \
-                    password TEXT NOT NULL, \
-                    name TEXT NOT NULL, \
-                    socket TEXT);")
+            self.DBcursor.execute("CREATE TABLE IF NOT EXISTS users (\
+                    id primary key, \
+                    password varchar(21), \
+                    name varchar(30), \
+                    family int, \
+                    fd int, \
+                    proto int \
+                    YouIP varchar(30) \
+                    MyIP varchar(30);")
             self.DBconnect.commit()
             self.DBcursor.execute("CREATE TABLE IF NOT EXISTS friends (id TEXT NOT NULL, \
                         You TEXT NOT NULL, \
@@ -232,9 +237,14 @@ class ServerRecv(Thread):
                             print('로그인 성공')
                             self.DBcursor.execute("SELECT * FROM users WHERE id = '%s';"%ID)
                             ABC = self.DBcursor.fetchall()
-                            print(ABC)
-                            print(self.sock)
-                            self.DBcursor.execute("UPDATE users SET socket = '" + self.sock + "' WHERE id = '" + ID + "';")
+                            
+                            self.DBcursor.execute("UPDATE users SET " +
+                                                  " family = " + int(self.sock.family) + 
+                                                  " fd = " + int(self.sock.fileno()) + 
+                                                  " proto = " + int(self.sock.proto) + 
+                                                  " YouIP = '" + str(self.sock.getpeername()[0]) + "," + str(self.sock.getpeername()[1]) + "'" + 
+                                                  " MyIP = '" + str(self.sock.getsockname()[0]) + "," + str(self.sock.getsockname()[1]) + "'" + 
+                                                  " WHERE id = '" + ID + "';")
                             self.DBconnect.commit()
                             send_header = struct.pack(
                                 fmt, b'LS00', len((DB_id[0]+"#"+DB_id[2]).encode('utf-8')))
