@@ -30,7 +30,6 @@ class WindowClass(QMainWindow, form_class):
         self.hide()
         self.Login = Login_Windowclass(self.sock)
         self.Login.exec()
-        self.Login.show()
         self.Login.Login_Signal.connect(self.Login_close)
         
         self.Chatting_Send_Button.clicked.connect(self.Chatting_Send)
@@ -245,8 +244,7 @@ class AccessionWindowClass(QDialog,QWidget,Accession_form_class):
         self.sock = sock
         self.Accession_Button.clicked.connect(self.AccessionFunction)
         self.Receive = Accession_Receive(self.sock)
-        self.Receive.Accession_Error.connect(self.Error_Slot)
-        self.Receive.Accession_Success.connect(self.Success_Slot)
+        self.Receive.Accession_Signal.connect(self.Signal_Slot)
         self.Receive.start()
         self.send_Data = b''
     
@@ -262,21 +260,17 @@ class AccessionWindowClass(QDialog,QWidget,Accession_form_class):
             self.sock.send(send_data_header + self.send_Data.encode('utf-8'))
     
     @pyqtSlot(str)
-    def Error_Slot(self,error):
-        if error == 'I':
+    def Signal_Slot(self, Join_Signal):
+        if Join_Signal == 'I':
             QMessageBox.about(self,'알림','아이디 중복')
-        elif error == 'N':
+        elif Join_Signal == 'N':
             QMessageBox.about(self,'알림','닉네임 중복')
-    
-    @pyqtSlot(str)
-    def Success_Slot(self, message):
-        if (message == 'S'):
+        elif Join_Signal == 'S':
             QMessageBox.about(self,'알림','회원가입 성공')
             self.close()
             
 class Accession_Receive(QThread):
-    Accession_Error = pyqtSignal(str)
-    Accession_Success = pyqtSignal(str)
+    Accession_Signal = pyqtSignal(str)
     def __init__(self, sock):
         super().__init__()
         self.sock = sock
@@ -291,21 +285,20 @@ class Accession_Receive(QThread):
                 if header[0][0] == 65:
                     print('받기 완료')
                     if header[0][1] == 83:
-                        Accession_Success.emit('S')
+                        Accession_Signal.emit('S')
                     elif header[0][1] == 70:
                         if header[0][2] == 73:
                             #아이디 중복
-                            Accession_Error.emit('I')
+                            Accession_Signal.emit('I')
                         elif header[0][2] == 78:
                             #닉네임 중복
-                            Accession_Error.emit('N')
+                            Accession_Signal.emit('N')
             except Exception as e:
                 print(e)
 
 #로그인 윈도우 클래스
 class Login_Windowclass(QDialog,QWidget,login_form_class):
-    Login_Signal = pyqtSignal(bool)
-    def __init__(self,sock):
+    def __init__(self, sock):
         super().__init__()
         self.setupUi(self)
         self.sock = sock
@@ -336,7 +329,7 @@ class Login_Windowclass(QDialog,QWidget,login_form_class):
         self.hide()
         self.Accession = AccessionWindowClass(self.sock)
         self.Accession.exec()
-        self.Accession.show()
+        self.show()
         
     @pyqtSlot(bool)
     def Login_Slot(self,Access):

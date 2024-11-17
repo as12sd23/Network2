@@ -44,7 +44,7 @@ class ServerRecv(Thread):
         self.sock = sock
         self.addr = addr
         self.DBconnect = sqlite3.connect(
-            './Chatting4.db', check_same_thread=False)
+            './Chatting7.db', check_same_thread=False)
         self.DBcursor = self.DBconnect.cursor()
         self.DBcursor.execute(
             "SELECT * FROM sqlite_master WHERE type= 'table';")
@@ -52,22 +52,22 @@ class ServerRecv(Thread):
 
         if 'Friends' not in TableName or 'Users' not in TableName:
             self.DBcursor.execute("CREATE TABLE IF NOT EXISTS users (\
-                    id primary key, \
+                    id varchar(30), \
                     password varchar(21), \
                     name varchar(30), \
-                    family int, \
-                    fd int, \
-                    proto int \
-                    YouIP varchar(30) \
-                    MyIP varchar(30);")
+                    family varchar(30), \
+                    fd varchar(30), \
+                    proto varchar(30), \
+                    YouIP varchar(30), \
+                    MyIP varchar(30));")
             self.DBconnect.commit()
-            self.DBcursor.execute("CREATE TABLE IF NOT EXISTS friends (id TEXT NOT NULL, \
-                        You TEXT NOT NULL, \
-                        We_Friend TEXT NOT NULL);")
+            self.DBcursor.execute("CREATE TABLE IF NOT EXISTS friends (id varchar(30), \
+                        You varchar(30), \
+                        We_Friend varchar(3));")
             self.DBconnect.commit()
-            self.DBcursor.execute("CREATE TABLE IF NOT EXISTS chatting (id TEXT NOT NULL, \
-                        You TEXT NOT NULL, \
-                        chat TEXT NOT NULL, \
+            self.DBcursor.execute("CREATE TABLE IF NOT EXISTS chatting (id varchar(30), \
+                        You varchar(30), \
+                        chat varchar(250), \
                         Date int, \
                         Time int);")
             self.DBconnect.commit()
@@ -118,7 +118,11 @@ class ServerRecv(Thread):
                     if header[0][1] == 70:
                         # 로그아웃
                         self.DBcursor.execute(
-                            "SELECT * FROM users WHERE socket = '%s';" % self.sock)
+                            "SELECT * FROM users " +  
+                                 "WHERE fd = '' AND " + 
+                                       "proto = '' AND " +
+                                       "YouIP = '' AND " + 
+                                       "MyIP = '';")
                         Imsi_id = self.DBcursor.fetchall()
                         if not Imsi_id:
                             pass
@@ -142,10 +146,15 @@ class ServerRecv(Thread):
                     if header[0][1] == 85:
                         # 친구 리스트 주세요
                         self.DBcursor.execute(
-                            "SELECT id FROM users WHERE socket = '%s';" % self.sock)
+                            "SELECT id FROM users " +
+                                 "WHERE fd = '" + str(self.sock.fileno()) + "' AND " + 
+                                       "proto = '" + str(self.sock.proto) + "' AND " +
+                                       "YouIP = '" + str(self.sock.getpeername()[0]) + "," + str(self.sock.getpeername()[1]) + "' AND " + 
+                                       "MyIP = '" + str(self.sock.getsockname()[0]) + "," + str(self.sock.getsockname()[1]) + "';")
                         Imsi_id = self.DBcursor.fetchall()
+                        print(Imsi_id[0][0])
                         self.DBcursor.execute(
-                            "SELECT You FROM friends WHERE id '%s' AND We_Friend = '%s';" % (Imsi_id, 'F'))
+                            "SELECT You FROM friends WHERE id '" + Imsi_id[0][0] + "' AND We_Friend = 'F';")
                         My_Friends = self.DBcursor.fetchall()
                         send_header = struct.pack(
                             fmt, b'UU00', len(My_Friends.encode('utf-8')))
@@ -157,7 +166,11 @@ class ServerRecv(Thread):
                             if header[0][3] == 82:
                                 # 친구 요청리스트 주세요
                                 self.DBcursor.execute(
-                                    "SELECT id FROM users WHERE socket = '%s';" % self.sock)
+                                    "SELECT id FROM users " +
+                                         "WHERE fd = '" + str(self.sock.fileno()) + "' AND " + 
+                                               "proto = '" + str(self.sock.proto) + "' AND " +
+                                               "YouIP = '" + str(self.sock.getpeername()[0]) + "," + str(self.sock.getpeername()[1]) + "' AND " + 
+                                               "MyIP = '" + str(self.sock.getsockname()[0]) + "," + str(self.sock.getsockname()[1]) + "';")
                                 Imsi_id = self.DBcursor.fetchall()
                                 self.DBcursor.execute(
                                     "SELECT * FROM friends WEHRE You = '&s' AND We_Friend = '%s';" % (Imsi_id, 'A'))
@@ -169,7 +182,11 @@ class ServerRecv(Thread):
                         elif header[0][2] == 89:
                             # 친구 신청 수락할래요
                             self.DBcursor.execute(
-                                "SELECT id FROM users WHERE socket = '%s';" % self.sock)
+                                "SELECT id FROM users " +
+                                     "WHERE fd = '" + str(self.sock.fileno()) + "' AND " + 
+                                           "proto = '" + str(self.sock.proto) + "' AND " +
+                                           "YouIP = '" + str(self.sock.getpeername()[0]) + "," + str(self.sock.getpeername()[1]) + "' AND " + 
+                                           "MyIP = '" + str(self.sock.getsockname()[0]) + "," + str(self.sock.getsockname()[1]) + "';")
                             Imsi_id = self.DBcursor.fetchall()
                             self.DBcursor.execute(
                                 "SELECT id FROM users WHERE name = '%s';" % recvData)
@@ -182,7 +199,11 @@ class ServerRecv(Thread):
                         elif header[0][2] == 78:
                             # 친구 신청 거절할래요
                             self.DBcursor.execute(
-                                "SELECT id FROM users WHERE socket = '%s';" % self.sock)
+                                "SELECT id FROM users " +
+                                     "WHERE fd = '" + str(self.sock.fileno()) + "' AND " + 
+                                           "proto = '" + str(self.sock.proto) + "' AND " +
+                                           "YouIP = '" + str(self.sock.getpeername()[0]) + "," + str(self.sock.getpeername()[1]) + "' AND " + 
+                                           "MyIP = '" + str(self.sock.getsockname()[0]) + "," + str(self.sock.getsockname()[1]) + "';")
                             Imsi_id = self.DBcursor.fetchall()
                             self.DBcursor.execute(
                                 "SELECT id FROM users WHERE name = '%s';" % recvData)
@@ -210,7 +231,11 @@ class ServerRecv(Thread):
                         elif header[0][2] == 82:
                             # 친구 신청 할래요
                             self.DBcursor.execute(
-                                "SELECT id FROM users WHERE socket = '%s';" % self.sock)
+                                "SELECT id FROM users " +
+                                     "WHERE fd = '" + str(self.sock.fileno()) + "' AND " + 
+                                           "proto = '" + str(self.sock.proto) + "' AND " +
+                                           "YouIP = '" + str(self.sock.getpeername()[0]) + "," + str(self.sock.getpeername()[1]) + "' AND " + 
+                                           "MyIP = '" + str(self.sock.getsockname()[0]) + "," + str(self.sock.getsockname()[1]) + "';")
                             Imsi_id = self.DBcursor.fetchall()
                             self.DBcursor.execute(
                                 "SELECT id FROM users WHERE name = '%s';" % recvData)
@@ -238,13 +263,13 @@ class ServerRecv(Thread):
                             self.DBcursor.execute("SELECT * FROM users WHERE id = '%s';"%ID)
                             ABC = self.DBcursor.fetchall()
                             
-                            self.DBcursor.execute("UPDATE users SET " +
-                                                  " family = " + int(self.sock.family) + 
-                                                  " fd = " + int(self.sock.fileno()) + 
-                                                  " proto = " + int(self.sock.proto) + 
-                                                  " YouIP = '" + str(self.sock.getpeername()[0]) + "," + str(self.sock.getpeername()[1]) + "'" + 
-                                                  " MyIP = '" + str(self.sock.getsockname()[0]) + "," + str(self.sock.getsockname()[1]) + "'" + 
-                                                  " WHERE id = '" + ID + "';")
+                            self.DBcursor.execute("UPDATE users " +
+                                                      "SET family = '" + str(self.sock.family) +  "', " + 
+                                                          "fd = '" + str(self.sock.fileno()) +  "', " + 
+                                                          "proto = '" + str(self.sock.proto) + "', " + 
+                                                          "YouIP = '" + str(self.sock.getpeername()[0]) + "," + str(self.sock.getpeername()[1]) + "', " + 
+                                                          "MyIP = '" + str(self.sock.getsockname()[0]) + "," + str(self.sock.getsockname()[1]) + "' " + 
+                                                      "WHERE id = '" + ID + "';")
                             self.DBconnect.commit()
                             send_header = struct.pack(
                                 fmt, b'LS00', len((DB_id[0]+"#"+DB_id[2]).encode('utf-8')))
