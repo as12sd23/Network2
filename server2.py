@@ -5,6 +5,7 @@ import sqlite3
 import struct
 import datetime
 import os
+import json
 import sys
 connection_socket_list = []
 
@@ -151,15 +152,24 @@ class ServerRecv(Thread):
                                        "proto = '" + str(self.sock.proto) + "' AND " +
                                        "YouIP = '" + str(self.sock.getpeername()[0]) + "," + str(self.sock.getpeername()[1]) + "' AND " + 
                                        "MyIP = '" + str(self.sock.getsockname()[0]) + "," + str(self.sock.getsockname()[1]) + "';")
+                        
                         Imsi_id = self.DBcursor.fetchall()
                         print(Imsi_id[0][0])
+                        print("SELECT You FROM friends WHERE id = '" + Imsi_id[0][0] + "' AND We_Friend = 'F';")
                         self.DBcursor.execute(
-                            "SELECT You FROM friends WHERE id '" + Imsi_id[0][0] + "' AND We_Friend = 'F';")
+                            "SELECT You FROM friends WHERE id = '" + Imsi_id[0][0] + "' AND We_Friend = 'F';")
                         My_Friends = self.DBcursor.fetchall()
+                        My_Friends_Name = {}
+                        for i in My_Friends:
+                            self.DBcursor.execute(
+                                "SELECT name FROM users WHERE id = '" + i + "';")
+                            Imsi_Name = self.DBcursor.fetchall()
+                            My_Friends_Name[i] = Imsi_Name
+                        My_Friends_Name = json.loads(My_Friends_Name)
                         send_header = struct.pack(
-                            fmt, b'UU00', len(My_Friends.encode('utf-8')))
+                            fmt, b'UU00', len(json.dumps(My_Friends_Name).encode('utf-8')))
                         self.sock.send(
-                            send_header + My_Friends.encode('utf-8'))
+                            send_header + json.dumps(My_Friends_Name).encode('utf-8')))
 
                     elif header[0][1] == 82:
                         if header[0][2] == 76:

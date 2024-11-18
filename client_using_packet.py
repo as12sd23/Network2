@@ -7,6 +7,7 @@ import sys
 from PyQt5.QtWidgets import*
 from PyQt5 import uic
 from PyQt5.QtCore import *
+import json
 
 
 FILE_READ_DATA = 1024
@@ -30,8 +31,7 @@ class WindowClass(QMainWindow, form_class):
         self.hide()
         self.Login = Login_Windowclass(self.sock)
         self.Login.exec()
-        self.Login.Login_Signal.connect(self.Login_close)
-        
+        self.show()
         self.Chatting_Send_Button.clicked.connect(self.Chatting_Send)
         self.Chatting.returnPressed.connect(self.Chatting_Send)
         self.File_Send_Button.clicked.connect(self.File_Send)
@@ -45,11 +45,6 @@ class WindowClass(QMainWindow, form_class):
         struct_header = struct.pack(fmt, b'UU00', 0)
         self.sock.send(struct_header)
         
-    @pyqtSlot(bool)
-    def Login_close(self, Login):
-        print(Login)
-        if Login == False:
-            self.close()
     
     def closeEvent(self, event):
         send_data_header = struct.pack(fmt,b'SF00', 0)
@@ -127,7 +122,9 @@ class Receive(QThread):
                 
                 if header[0][0] == 85:
                     if header[0][1] == 85:
-                        print(recvData)
+                        self.Friends_Name = json.loads(recvData)
+                        for i in self.Friends_Name:
+                            Friend_List.append(self.Friends_Name[i])
                 elif header[0][0] == 109:
                     if header[0][1] == 112:
                         self.Chatting_Signal.emit(recvData.decode())
@@ -298,6 +295,7 @@ class Accession_Receive(QThread):
 
 #로그인 윈도우 클래스
 class Login_Windowclass(QDialog,QWidget,login_form_class):
+    
     def __init__(self, sock):
         super().__init__()
         self.setupUi(self)
@@ -311,11 +309,7 @@ class Login_Windowclass(QDialog,QWidget,login_form_class):
         self.send_Data = ''
     
     def closeEvent(self, event):
-        if self.Login == False:
-            self.Login_Signal.emit(False)
-        else:
-            self.Login_Signal.emit(True)
-            
+            pass
     def LoginSend(self,sock):
         ID_Data = self.ID_Edit.text()
         PW_Data = self.PW_Edit.text()
@@ -335,7 +329,6 @@ class Login_Windowclass(QDialog,QWidget,login_form_class):
     def Login_Slot(self,Access):
         if Access == True:
             #QMessageBox.about(self,'알림','로그인 성공')
-            self.Login = True
             self.close()
         elif Access == False:
             QMessageBox.about(self,'알림','로그인 실패')
