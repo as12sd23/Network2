@@ -253,21 +253,25 @@ class AccessionWindowClass(QDialog,QWidget,Accession_form_class):
         self.send_Data = ID_Data + ' ' + PW_Data + ' ' + NAME_Data
         
         if ID_Data != '' and PW_Data != '' and NAME_Data != '':
-            send_data_header = struct.pack(fmt,b'AU00',len(self.send_Data.encode('utf-8')))
+            send_data_header = struct.pack(fmt, b'AU00', len(self.send_Data.encode('utf-8')))
             self.sock.send(send_data_header + self.send_Data.encode('utf-8'))
     
-    @pyqtSlot(str)
+    @pyqtSlot(int)
     def Signal_Slot(self, Join_Signal):
-        if Join_Signal == 'I':
+        self.Join_Signal = Join_Signal
+        
+        if self.Join_Signal == 0:
             QMessageBox.about(self,'알림','아이디 중복')
-        elif Join_Signal == 'N':
+        elif self.Join_Signal == 1:
             QMessageBox.about(self,'알림','닉네임 중복')
-        elif Join_Signal == 'S':
+        elif self.Join_Signal == 2:
             QMessageBox.about(self,'알림','회원가입 성공')
             self.close()
+        else:
+            QMessageBox.about(self, '알림', '신호 에러')
             
 class Accession_Receive(QThread):
-    Accession_Signal = pyqtSignal(str)
+    Accession_Signal = pyqtSignal(int)
     def __init__(self, sock):
         super().__init__()
         self.sock = sock
@@ -282,14 +286,14 @@ class Accession_Receive(QThread):
                 if header[0][0] == 65:
                     print('받기 완료')
                     if header[0][1] == 83:
-                        Accession_Signal.emit('S')
+                        self.Accession_Signal.emit(2)
                     elif header[0][1] == 70:
                         if header[0][2] == 73:
                             #아이디 중복
-                            Accession_Signal.emit('I')
+                            self.Accession_Signal.emit(0)
                         elif header[0][2] == 78:
                             #닉네임 중복
-                            Accession_Signal.emit('N')
+                            self.Accession_Signal.emit(1)
             except Exception as e:
                 print(e)
 

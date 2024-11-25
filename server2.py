@@ -168,8 +168,7 @@ class ServerRecv(Thread):
                         My_Friends_Name = json.loads(My_Friends_Name)
                         send_header = struct.pack(
                             fmt, b'UU00', len(json.dumps(My_Friends_Name).encode('utf-8')))
-                        self.sock.send(
-                            send_header + json.dumps(My_Friends_Name).encode('utf-8')))
+                        self.sock.send(send_header + json.dumps(My_Friends_Name).encode('utf-8'))
 
                     elif header[0][1] == 82:
                         if header[0][2] == 76:
@@ -182,8 +181,7 @@ class ServerRecv(Thread):
                                                "YouIP = '" + str(self.sock.getpeername()[0]) + "," + str(self.sock.getpeername()[1]) + "' AND " + 
                                                "MyIP = '" + str(self.sock.getsockname()[0]) + "," + str(self.sock.getsockname()[1]) + "';")
                                 Imsi_id = self.DBcursor.fetchall()
-                                self.DBcursor.execute(
-                                    "SELECT * FROM friends WEHRE You = '&s' AND We_Friend = '%s';" % (Imsi_id, 'A'))
+                                self.DBcursor.execute("SELECT * FROM friends WEHRE You = '" + Imsi_id + "' AND We_Friend = 'A';")
                                 Imsi_friend = self.DBcursor.fetchall()
                                 send_header = struct.pack(
                                     fmt, b'URL0', len(Imsi_friend.encode('utf-8')))
@@ -300,10 +298,11 @@ class ServerRecv(Thread):
                                 print("회원가입 성공")
                                 self.DBcursor.execute("INSERT INTO users (id, password, name) VALUES ('%s', '%s', '%s');"%(ID, PW, NAME))
                                 self.DBconnect.commit()
-                                self.DBcursor.execute("SELECT * FROM users")
+                                self.DBcursor.execute("SELECT * FROM users WHERE id = '" + ID + "';")
                                 A = self.DBcursor.fetchall()
                                 print(A)
                                 send_header = struct.pack(fmt, b'AS00', 0)
+                                
                                 self.sock.send(send_header)
                                 print('전송 완료')
                             else:
