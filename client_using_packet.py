@@ -142,8 +142,26 @@ class Receive(QThread):
                             
                             self.AllData =b''
                             self.File_End_Signal.emit('파일 전송 완료')
+                elif header[0][0] == 85:
+                    if header[0][1] == 82:
+                        if header[0][2] == 76:
+                            #요청 리스트 주는거
+                            print(recvData.decode())
+                    elif header[0][1] == 83:
+                        if header[0][2] == 76:
+                            # 검색 리스트 주는거
+                            pass
+                    elif header[0][1] == 65:
+                        if header[0][2] == 76:
+                            # 친구 신청 리스트 주는거
+                            pass
             except Exception as e:
-                print(e)
+                exc_type, exc_obj, exc_tb = sys.exc_info()
+                fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+                print(f'file name: {str(fname)}')
+                print(f'error type: {str(exc_type)}')
+                print(f'error msg: {str(e)}')
+                print(f'line number: {str(exc_tb.tb_lineno)}')
 '''
 U 친구
 -R 요청                                   -S 검색                           -A 친구 신청된거 주세요
@@ -204,35 +222,6 @@ class FriendWindowClass(QDialog,QWidget,Friend_form_class):
             elif friend_event == QMessageBox.No:
                 send_data_header = struct.pack(fmt,b'URN0',len(friend.encode('utf-8')))#친구 요청 보냄
                 self.sock.send(send_data_header+friend.encode('utf-8'))
-            
-class Friend_Receive(QThread):
-    def __init__(self, sock):
-        super().__init__()
-        self.sock = sock
-    
-    def run(self):
-        while True:
-            try:
-                recv_data_header = self.sock.recv(HEADER_SIZE)
-                header = struct.unpack(fmt, recv_data_header)
-                recvData = self.sock.recv(header[1].decode())
-                print(recvData)
-                
-                if header[0][0] == 85:
-                    if header[0][1] == 82:
-                        if header[0][2] == 76:
-                            #요청 리스트 주는거
-                            pass
-                    elif header[0][1] == 83:
-                        if header[0][2] == 76:
-                            # 검색 리스트 주는거
-                            pass
-                    elif header[0][1] == 65:
-                        if header[0][2] == 76:
-                            # 친구 신청 리스트 주는거
-                            pass
-            except Exception as e:
-                print(e)
 #회원가입 윈도우 클래스
 class AccessionWindowClass(QDialog,QWidget,Accession_form_class):
     def __init__(self,sock):
@@ -241,7 +230,7 @@ class AccessionWindowClass(QDialog,QWidget,Accession_form_class):
         self.sock = sock
         self.Accession_Button.clicked.connect(self.AccessionFunction)
         self.Receive = Accession_Receive(self.sock)
-        self.Receive.Accession_Signal.connect(self.Signal_Slot)
+        self.Receive.ASignal.connect(self.Signal)
         self.Receive.start()
         self.send_Data = b''
     
@@ -255,23 +244,22 @@ class AccessionWindowClass(QDialog,QWidget,Accession_form_class):
         if ID_Data != '' and PW_Data != '' and NAME_Data != '':
             send_data_header = struct.pack(fmt, b'AU00', len(self.send_Data.encode('utf-8')))
             self.sock.send(send_data_header + self.send_Data.encode('utf-8'))
-    
-    @pyqtSlot(int)
-    def Signal_Slot(self, Join_Signal):
-        self.Join_Signal = Join_Signal
         
-        if self.Join_Signal == 0:
-            QMessageBox.about(self,'알림','아이디 중복')
-        elif self.Join_Signal == 1:
-            QMessageBox.about(self,'알림','닉네임 중복')
-        elif self.Join_Signal == 2:
-            QMessageBox.about(self,'알림','회원가입 성공')
-            self.close()
-        else:
-            QMessageBox.about(self, '알림', '신호 에러')
+    @pyqtSlot(int)
+    def Signal(self, AAA):
             
+        if AAA == 0:
+            QMessageBox.about(self, '알림', '회원가입 성공')
+            self.close()
+        elif AAA == 1:
+            QMessageBox.about(self, '알림', '아이디 중복')
+        elif AAA == 2:
+            QMessageBox.about(self, '알림', '닉네임 중복')
+        else:
+            QMessageBox.about(self, '알림', 'Error')
+        
 class Accession_Receive(QThread):
-    Accession_Signal = pyqtSignal(int)
+    ASignal = pyqtSignal(int)
     def __init__(self, sock):
         super().__init__()
         self.sock = sock
@@ -279,23 +267,30 @@ class Accession_Receive(QThread):
     def run(self):
         while True:
             try:
+                print('진입됨')
                 recv_data_header = self.sock.recv(HEADER_SIZE)
                 header = struct.unpack(fmt,recv_data_header)
                 recvData=self.sock.recv(header[1])
+                print(recvData)
                 
                 if header[0][0] == 65:
                     print('받기 완료')
                     if header[0][1] == 83:
-                        self.Accession_Signal.emit(2)
+                        self.ASignal.emit(0)
                     elif header[0][1] == 70:
                         if header[0][2] == 73:
                             #아이디 중복
-                            self.Accession_Signal.emit(0)
+                            self.ASignal.emit(1)
                         elif header[0][2] == 78:
                             #닉네임 중복
-                            self.Accession_Signal.emit(1)
+                            self.ASignal.emit(2)
             except Exception as e:
-                print(e)
+                exc_type, exc_obj, exc_tb = sys.exc_info()
+                fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+                print(f'file name: {str(fname)}')
+                print(f'error type: {str(exc_type)}')
+                print(f'error msg: {str(e)}')
+                print(f'line number: {str(exc_tb.tb_lineno)}')
 
 #로그인 윈도우 클래스
 class Login_Windowclass(QDialog,QWidget,login_form_class):
@@ -307,9 +302,8 @@ class Login_Windowclass(QDialog,QWidget,login_form_class):
         self.Login_Button.clicked.connect(self.LoginSend)
         self.Accession_Button.clicked.connect(self.AccessionSend)
         self.Receive = Login_Receive(sock)
-        self.Receive.Login_Signal.connect(self.Login_Slot)
+        self.Receive.LSignal.connect(self.Signal)
         self.Receive.start()
-        self.Login = False
         self.send_Data = ''
     
     def closeEvent(self, event):
@@ -328,18 +322,16 @@ class Login_Windowclass(QDialog,QWidget,login_form_class):
         self.Accession = AccessionWindowClass(self.sock)
         self.Accession.exec()
         self.show()
-        
-    @pyqtSlot(bool)
-    def Login_Slot(self,Access):
-        if Access == True:
-            #QMessageBox.about(self,'알림','로그인 성공')
-            self.close()
-        elif Access == False:
-            QMessageBox.about(self,'알림','로그인 실패')
-        
-class Login_Receive(QThread):
-    Login_Signal = pyqtSignal(bool)
     
+    def Signal(self, BBB):
+        
+        if BBB == False:
+            QMessageBox.about(self,'알림','로그인 실패')
+        else:
+            self.close()
+           
+class Login_Receive(QThread):
+    LSignal = pyqtSignal(bool)
     def __init__(self,sock):
         super().__init__()
         self.sock = sock
@@ -353,11 +345,16 @@ class Login_Receive(QThread):
                 
                 if header[0][0] == 76:
                     if header[0][1] == 83:
-                        self.Login_Signal.emit(True)
+                        self.LSignal.emit(True)
                     elif header[0][1] == 70:
-                        self.Login_Signal.emit(False)
+                        self.LSignal.emit(False)
             except Exception as e:
-                print(e)
+                exc_type, exc_obj, exc_tb = sys.exc_info()
+                fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+                print(f'file name: {str(fname)}')
+                print(f'error type: {str(exc_type)}')
+                print(f'error msg: {str(e)}')
+                print(f'line number: {str(exc_tb.tb_lineno)}')
 
 port = 8080
 clientSock = socket(AF_INET, SOCK_STREAM)

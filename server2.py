@@ -38,7 +38,6 @@ HEADER_SIZE = 8
 fmt = "=4si"
 fmt_size = struct.calcsize(fmt)
 
-
 class ServerRecv(Thread):
     def __init__(self, sock, addr):
         super().__init__()
@@ -155,17 +154,18 @@ class ServerRecv(Thread):
                         
                         Imsi_id = self.DBcursor.fetchall()
                         print(Imsi_id[0][0])
-                        print("SELECT You FROM friends WHERE id = '" + Imsi_id[0][0] + "' AND We_Friend = 'F';")
-                        self.DBcursor.execute(
-                            "SELECT You FROM friends WHERE id = '" + Imsi_id[0][0] + "' AND We_Friend = 'F';")
+                        
+                        sql = "SELECT You FROM friends WHERE id = '" + Imsi_id[0][0] + "' AND We_Friend = 'F';"
+                        print(sql)
+                        self.DBcursor.execute(sql)
                         My_Friends = self.DBcursor.fetchall()
                         My_Friends_Name = {}
-                        for i in My_Friends:
-                            self.DBcursor.execute(
-                                "SELECT name FROM users WHERE id = '" + i + "';")
-                            Imsi_Name = self.DBcursor.fetchall()
-                            My_Friends_Name[i] = Imsi_Name
-                        My_Friends_Name = json.loads(My_Friends_Name)
+                        self.DBcursor.execute(
+                                f"SELECT name FROM users WHERE id = '{Imsi_id[0][0]}';")
+                        Imsi_Name = self.DBcursor.fetchall()
+                        Imsi_Name = str(Imsi_Name).replace("'", '"')
+                        
+                        My_Friends_Name = json.loads(Imsi_Name)
                         send_header = struct.pack(
                             fmt, b'UU00', len(json.dumps(My_Friends_Name).encode('utf-8')))
                         self.sock.send(send_header + json.dumps(My_Friends_Name).encode('utf-8'))
