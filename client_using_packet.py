@@ -32,15 +32,20 @@ class WindowClass(QMainWindow, form_class):
         self.Login = Login_Windowclass(self.sock)
         self.Login.exec()
         self.show()
+        
+        print("누가 범인이냐")
         self.Chatting_Send_Button.clicked.connect(self.Chatting_Send)
         self.Chatting.returnPressed.connect(self.Chatting_Send)
         self.File_Send_Button.clicked.connect(self.File_Send)
-        
+        self.FriendButton.clicked.connect(self.FriendWindows_Create_Button())
+        print("말하면 안혼낸다")
         self.receive = Receive(self.sock)
         self.receive.Chatting_Signal.connect(self.Chatting_Slot)
         self.receive.File_Sending_Signal.connect(self.File_Sending_Slot)
         self.receive.File_End_Signal.connect(self.File_End_Slot)
         self.receive.start()
+        
+        
         
         struct_header = struct.pack(fmt, b'UU00', 0)
         self.sock.send(struct_header)
@@ -78,9 +83,13 @@ class WindowClass(QMainWindow, form_class):
                 time.sleep(1)
             self.Chatting_list.appendPlainText('파일 전송 완료')
             
-        
+    def FriendWindows_Create_Button(self):
+        print("너 왜 작동함?")
+        self.Friend = FriendWindowClass(self.sock)
+        self.Friend.show()
         
     def Chatting_Send(self):
+        print("너도 작동하냐?")
         sendData=self.Chatting.text()
         if sendData != '':
             self.Chatting_list.appendPlainText('나 : ' + sendData)

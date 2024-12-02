@@ -87,13 +87,13 @@
     <string>친구 검색</string>
    </property>
   </widget>
-  <widget class="QListView" name="listView">
+  <widget class="QListWidget" name="Friend_List">
    <property name="geometry">
     <rect>
      <x>20</x>
      <y>150</y>
-     <width>270</width>
-     <height>480</height>
+     <width>271</width>
+     <height>481</height>
     </rect>
    </property>
   </widget>

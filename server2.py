@@ -118,12 +118,13 @@ class ServerRecv(Thread):
                     if header[0][1] == 70:
                         # 로그아웃
                         self.DBcursor.execute(
-                            "SELECT * FROM users " +  
-                                 "WHERE fd = '' AND " + 
-                                       "proto = '' AND " +
-                                       "YouIP = '' AND " + 
-                                       "MyIP = '';")
+                            f"UPDATE users SET (fd = '', proto = '', YouIP = '', MyIP = '') \
+                                WHERE fd = 'self.sock.fileno()' AND \
+                                    proto = 'self.sock.proto()' AND \
+                                    YouIP = 'self.sock.getpeername()[0],self.sock.getpeername()[1]' AND \
+                                        MyIP = 'self.sock.getsockname()[0],self.sock.getsockname()[1]';")
                         Imsi_id = self.DBcursor.fetchall()
+                        self.sock.close()
                         if not Imsi_id:
                             pass
                             #그냥 종료
@@ -162,12 +163,18 @@ class ServerRecv(Thread):
                         My_Friends_Name = {}
                         self.DBcursor.execute(
                                 f"SELECT name FROM users WHERE id = '{Imsi_id[0][0]}';")
+                        
                         Imsi_Name = self.DBcursor.fetchall()
+                        '''
                         Imsi_Name = str(Imsi_Name).replace("'", '"')
                         
-                        My_Friends_Name = json.loads(Imsi_Name)
+                        if (Imsi_Name[len(Imsi_Name) - 3 : - 2] == ','):
+                            Imsi_Name = Imsi_Name[:-3] + Imsi_Name[len(Imsi_Name) - 2:]
+                        '''
+                        
+                        # My_Friends_Name = json.loads(Imsi_Name)
                         send_header = struct.pack(
-                            fmt, b'UU00', len(json.dumps(My_Friends_Name).encode('utf-8')))
+                            fmt, b'UU00', len(str(Imsi_Name).encode('utf-8')))
                         self.sock.send(send_header + json.dumps(My_Friends_Name).encode('utf-8'))
 
                     elif header[0][1] == 82:

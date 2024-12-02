@@ -52,16 +52,6 @@
     </rect>
    </property>
   </widget>
-  <widget class="QPlainTextEdit" name="Friend_List">
-   <property name="geometry">
-    <rect>
-     <x>10</x>
-     <y>50</y>
-     <width>341</width>
-     <height>761</height>
-    </rect>
-   </property>
-  </widget>
   <widget class="QPushButton" name="Chatting_Send_Button">
    <property name="geometry">
     <rect>
@@ -100,7 +90,7 @@
     <string>친구목록</string>
    </property>
   </widget>
-  <widget class="QPushButton" name="pushButton">
+  <widget class="QPushButton" name="FriendButton">
    <property name="geometry">
     <rect>
      <x>270</x>
@@ -136,6 +126,16 @@
    </property>
    <property name="text">
     <string>상대방</string>
+   </property>
+  </widget>
+  <widget class="QListWidget" name="Friend_List">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>50</y>
+     <width>341</width>
+     <height>761</height>
+    </rect>
    </property>
   </widget>
  </widget>
