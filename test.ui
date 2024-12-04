@@ -90,7 +90,7 @@
     <string>친구목록</string>
    </property>
   </widget>
-  <widget class="QPushButton" name="FriendButton">
+  <widget class="QPushButton" name="Friend_Button">
    <property name="geometry">
     <rect>
      <x>270</x>

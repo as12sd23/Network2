@@ -74,7 +74,7 @@ class ServerRecv(Thread):
             
         self.DBcursor.execute("SELECT * FROM users")
         A = self.DBcursor.fetchall()
-        print(A)
+        
 
     def run(self):
         while True:
@@ -119,11 +119,11 @@ class ServerRecv(Thread):
                         # 로그아웃
                         self.DBcursor.execute(
                             f"UPDATE users SET (fd = '', proto = '', YouIP = '', MyIP = '') \
-                                WHERE fd = 'self.sock.fileno()' AND \
-                                    proto = 'self.sock.proto()' AND \
-                                    YouIP = 'self.sock.getpeername()[0],self.sock.getpeername()[1]' AND \
-                                        MyIP = 'self.sock.getsockname()[0],self.sock.getsockname()[1]';")
-                        Imsi_id = self.DBcursor.fetchall()
+                                WHERE fd = '{self.sock.fileno()}' AND \
+                                    proto = '{self.sock.proto()}' AND \
+                                    YouIP = '{self.sock.getpeername()[0]},{self.sock.getpeername()[1]}' AND \
+                                        MyIP = '{self.sock.getsockname()[0]},{self.sock.getsockname()[1]}';")
+                        self.DBconnect.commit()
                         self.sock.close()
                         if not Imsi_id:
                             pass
@@ -145,38 +145,58 @@ class ServerRecv(Thread):
 
                 elif header[0][0] == 85:
                     if header[0][1] == 85:
-                        # 친구 리스트 주세요
-                        self.DBcursor.execute(
+                        if header[0][2] == 85:
+                            #친구 검색할래요
+                            sql = f"SELECT id FROM users \
+                            WHERE fd = '{self.sock.fileno()}' AND \
+                                proto = '{self.sock.proto()}' AND \
+                                YouIP = '{self.sock.getpeername()[0]},{self.sock.getpeername()[1]}' AND \
+                                    MyIP = '{self.sock.getsockname()[0]},{self.sock.getsockname()[1]}';")
+                            self.DBcursor.execute(sql)
+                            My_ID = self.DBcursor.fetchall()
+                            sql = f"SELECT * FROM users WHERE name = '{recvData}';"
+                            self.DBcursor.execute(sql)
+                            Imsi = self.DBcursor.fetchall()
+                            for ID in Imsi:
+                                sql = f"SELECT name FROM friends WHERE ME = '{ID[2]}' AND YOU = '{My_ID}' AND We_friends != 'B';"
+                            self.DBcursor.execute(sql)
+                            Imsi = self.DBcursor.fetchall()
+                            
+                            send_header = struct.pack(fmt, b'UUU0', len(str(Imsi).encode('utf-8')))
+                            self.sock.send(send_header + str(Imsi).encode('utf-8'))
+                        else:
+                            # 친구 리스트 주세요
+                            self.DBcursor.execute(
                             "SELECT id FROM users " +
                                  "WHERE fd = '" + str(self.sock.fileno()) + "' AND " + 
                                        "proto = '" + str(self.sock.proto) + "' AND " +
                                        "YouIP = '" + str(self.sock.getpeername()[0]) + "," + str(self.sock.getpeername()[1]) + "' AND " + 
                                        "MyIP = '" + str(self.sock.getsockname()[0]) + "," + str(self.sock.getsockname()[1]) + "';")
                         
-                        Imsi_id = self.DBcursor.fetchall()
-                        print(Imsi_id[0][0])
+                            Imsi_id = self.DBcursor.fetchall()
+                            print(Imsi_id[0][0])
                         
-                        sql = "SELECT You FROM friends WHERE id = '" + Imsi_id[0][0] + "' AND We_Friend = 'F';"
-                        print(sql)
-                        self.DBcursor.execute(sql)
-                        My_Friends = self.DBcursor.fetchall()
-                        My_Friends_Name = {}
-                        self.DBcursor.execute(
-                                f"SELECT name FROM users WHERE id = '{Imsi_id[0][0]}';")
+                            sql = "SELECT You FROM friends WHERE id = '" + Imsi_id[0][0] + "' AND We_Friend = 'F';"
+                            print(sql)
+                            self.DBcursor.execute(sql)
+                            My_Friends = self.DBcursor.fetchall()
+                            My_Friends_Name = {}
+                            self.DBcursor.execute(
+                                    f"SELECT name FROM users WHERE id = '{Imsi_id[0][0]}';")
                         
-                        Imsi_Name = self.DBcursor.fetchall()
-                        '''
-                        Imsi_Name = str(Imsi_Name).replace("'", '"')
-                        
-                        if (Imsi_Name[len(Imsi_Name) - 3 : - 2] == ','):
-                            Imsi_Name = Imsi_Name[:-3] + Imsi_Name[len(Imsi_Name) - 2:]
-                        '''
-                        
-                        # My_Friends_Name = json.loads(Imsi_Name)
-                        send_header = struct.pack(
-                            fmt, b'UU00', len(str(Imsi_Name).encode('utf-8')))
-                        self.sock.send(send_header + json.dumps(My_Friends_Name).encode('utf-8'))
-
+                            Imsi_Name = self.DBcursor.fetchall()
+                            '''
+                            Imsi_Name = str(Imsi_Name).replace("'", '"')
+                            
+                            if (Imsi_Name[len(Imsi_Name) - 3 : - 2] == ','):
+                                Imsi_Name = Imsi_Name[:-3] + Imsi_Name[len(Imsi_Name) - 2:]
+                                '''
+                                
+                                # My_Friends_Name = json.loads(Imsi_Name)
+                            send_header = struct.pack(
+                                    fmt, b'UU00', len(str(Imsi_Name).encode('utf-8')))
+                            self.sock.send(send_header + json.dumps(My_Friends_Name).encode('utf-8'))
+                                
                     elif header[0][1] == 82:
                         if header[0][2] == 76:
                             if header[0][3] == 82:

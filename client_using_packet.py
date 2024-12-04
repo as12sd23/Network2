@@ -37,7 +37,7 @@ class WindowClass(QMainWindow, form_class):
         self.Chatting_Send_Button.clicked.connect(self.Chatting_Send)
         self.Chatting.returnPressed.connect(self.Chatting_Send)
         self.File_Send_Button.clicked.connect(self.File_Send)
-        self.FriendButton.clicked.connect(self.FriendWindows_Create_Button())
+        self.Friend_Button.clicked.connect(self.FriendWindows_Create_Button)
         print("말하면 안혼낸다")
         self.receive = Receive(self.sock)
         self.receive.Chatting_Signal.connect(self.Chatting_Slot)
@@ -87,6 +87,7 @@ class WindowClass(QMainWindow, form_class):
         print("너 왜 작동함?")
         self.Friend = FriendWindowClass(self.sock)
         self.Friend.show()
+        app.exec_()
         
     def Chatting_Send(self):
         print("너도 작동하냐?")
@@ -208,8 +209,8 @@ class FriendWindowClass(QDialog,QWidget,Friend_form_class):
         Send_NickName = self.Friend_Name_Edit.text()
         if Send_NickName != '':
             if self.Friend_State == False:
-                send_data_header = struct.pack(fmt , b'USL0',len(self.Send_NickName.encode('utf-8')))
-                self.sock.send(send_data_header + self.Send_NickName.encode('utf-8'))
+                send_data_header = struct.pack(fmt , b'USL0',len(Send_NickName.encode('utf-8')))
+                self.sock.send(send_data_header + Send_NickName.encode('utf-8'))
             else:
                 pass
             
