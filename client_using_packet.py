@@ -115,7 +115,7 @@ class Receive(QThread):
     Chatting_Signal = pyqtSignal(str)
     File_Sending_Signal = pyqtSignal(str)
     File_End_Signal = pyqtSignal(str)
-    
+    Friend_Signal = pyqtSignal(str)
     def __init__(self,sock):
         super().__init__()
         self.RECV_FILE_NAME =''
@@ -127,7 +127,7 @@ class Receive(QThread):
         while True:
             try:
                 recv_data_header = self.sock.recv(HEADER_SIZE)
-                header = struct.unpack(fmt,recv_data_header)
+                header = struct.unpack(fmt, recv_data_header)
                 recvData = self.sock.recv(header[1].decode())
                 
                 if header[0][0] == 85:
@@ -156,15 +156,16 @@ class Receive(QThread):
                     if header[0][1] == 82:
                         if header[0][2] == 76:
                             #요청 리스트 주는거
-                            print(recvData.decode())
+                            Friend_Signal.emit('A:'+ recvData)
                     elif header[0][1] == 83:
                         if header[0][2] == 76:
                             # 검색 리스트 주는거
-                            pass
+                            Friend_Signal.emit('B:'+ recvData)
                     elif header[0][1] == 65:
                         if header[0][2] == 76:
                             # 친구 신청 리스트 주는거
-                            pass
+                            Friend_Signal.emit('C:'+ recvData)
+                            
             except Exception as e:
                 exc_type, exc_obj, exc_tb = sys.exc_info()
                 fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
@@ -189,8 +190,21 @@ class FriendWindowClass(QDialog,QWidget,Friend_form_class):
         self.Friend_Search_Button.clicked.connect(self.User_Search_List)
         self.Friend_Accept_Button.clicked.connect(self.User_Accept_List)
         self.Friend_List.itemClicked.connect(self.Friend_ListView)
+        self.MainWindow = WindowClass()
+        self.MainWindow.Friend_Signal.connect(self.Friend_List_Data)
         self.Friend_State = False
         self.Friend_List_Save = []
+        
+    @pyqtSignal(str)
+    def Friend_List_Data(self, msg):
+        Imsi = msg.split(":")
+        if Imsi[0] == 'A':
+            pass
+        elif Imsi[1] == 'B':
+            pass
+        elif Imsi[2] == 'C':
+            pass
+        
     def User_Search_List(self):
         #U 
         #-r 찾기
@@ -209,8 +223,12 @@ class FriendWindowClass(QDialog,QWidget,Friend_form_class):
         Send_NickName = self.Friend_Name_Edit.text()
         if Send_NickName != '':
             if self.Friend_State == False:
-                send_data_header = struct.pack(fmt , b'USL0',len(Send_NickName.encode('utf-8')))
-                self.sock.send(send_data_header + Send_NickName.encode('utf-8'))
+                if self.Friend_Name_Edit.text() != '':
+                    send_data_header = struct.pack(fmt , b'UUU0',len(Send_NickName.encode('utf-8')))
+                    self.sock.send(send_data_header + Send_NickName.encode('utf-8'))
+                else:
+                    send_data_header = struct.pack(fmt , b'USL0', 0)
+                    self.sock.send(send_data_header)
             else:
                 pass
             
@@ -221,6 +239,7 @@ class FriendWindowClass(QDialog,QWidget,Friend_form_class):
                                  QMessageBox.Yes | QMessageBox.No)
             
             if friend_event == QMessageBox.Yes:
+                send_data_header = struct.pack(fmt, b'UUR0', len(friend.encode('utf-8')))
                 self.sock.send(send_data_header+friend.encode('utf-8'))
         else:
             friend_event = QMessageBox.question(self,'알림','친구 수락 거절',
@@ -350,7 +369,8 @@ class Login_Receive(QThread):
         while True:
             try:
                 recv_data_header=self.sock.recv(HEADER_SIZE)
-                header = struct.unpack(fmt,recv_data_header)
+                print(recv_data_header)
+                header = struct.unpack(fmt, recv_data_header)
                 recvData=self.sock.recv(header[1])
                 
                 if header[0][0] == 76:
@@ -368,7 +388,7 @@ class Login_Receive(QThread):
 
 port = 8080
 clientSock = socket(AF_INET, SOCK_STREAM)
-clientSock.connect(('localhost', port))
+clientSock.connect(('192.168.0.46', port))
 print(clientSock)
 print(clientSock.family)
 print(clientSock.fileno())

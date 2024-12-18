@@ -42,9 +42,10 @@ class ServerRecv(Thread):
     def __init__(self, sock, addr):
         super().__init__()
         self.sock = sock
+        self.CloseCount = 0
         self.addr = addr
         self.DBconnect = sqlite3.connect(
-            './Chatting7.db', check_same_thread=False)
+            './Chatting8.db', check_same_thread=False)
         self.DBcursor = self.DBconnect.cursor()
         self.DBcursor.execute(
             "SELECT * FROM sqlite_master WHERE type= 'table';")
@@ -86,15 +87,35 @@ class ServerRecv(Thread):
                 header = struct.unpack(fmt, recv_data_header)
                 recvData = self.sock.recv(header[1]).decode()
                 print(header)
-                print(recvData)
+                print("recvData : " + recvData)
+                self.CloseCount = 0
 
                 if header[0][0] == 109:
                     if header[0][1] == 112:
+                        
+                        sql = f"SELECT name FROM users WHERE \
+                        fd = '{self.sock.fileno()}' AND \
+                        family = '{self.sock.family}' AND \
+                        proto = '{self.sock.proto}' AND \
+                        IP = '{self.sock.getpeername()[0]}' AND \
+                        Port = '{self.sock.getpeername()[1]}';"
+                        self.DBcursor.execute(sql)
+                        MyName = self.DBcursor.fetchall()
+                        
                         print('개인용 메세지', recvData)
                         recvData = recvData.split(':')
-                        self.DBcursor.execute(
-                            "SELECT * FROM users WHERE sock = '%s';", self.sock)
-                        self.DBcursor.fetchall()
+                        sql = f"SELECT (family, IP, Port) FROM users WHERE name = '{recvData[0]}';"
+                        self.DBcursor.execute(sql)
+                        Imsi_socket_data = self.DBcursor.fetchall()
+                        
+                        if (Imsi_socket_data[0] == '2'):
+                            Imsi_socket = socket(AF_INET, SOCK_STREAM)
+                            Imsi_socket.bind(Imsi_socket_data[1], Imsi_socket_data[2])
+                            
+                            Send_Data = MyName + ":" + recvData
+                            send_header = struct.pack(fmt, b'SF00', len(Send_Data.encode('utf-8')))
+                            print(send_header)
+                            Imsi_socket.send(send_header + Send_Data.encode('utf-8'))
 
                         self.DBcursor.execute(
                             "SELECT * FROM users WHERE name = '%s';" % recvData[0])
@@ -103,9 +124,14 @@ class ServerRecv(Thread):
                         self.DBcursor.execute("INSERT INTO chatting (id, You, chat, Date, Time) VALUES (?, ?, ?, ?, ?);", (
                             my_id[0], you_sock[0], recvData[1], self.Date, self.Time))
                         self.DBconnect.commit()
+                        
+                        
+                        
                         if my_sock[3] != '':
                             send_header = struct.pack(fmt, b'SF00', len(
                                 my_id[2]+":"+recvData[1].encode('utf-8')))
+                            
+                            print(send_header)
                             you_sock[4].send(
                                 send_header + (my_id[2]+":"+recvData[1]).encode('utf-8'))
 
@@ -119,7 +145,7 @@ class ServerRecv(Thread):
                     if header[0][1] == 85:
                         if header[0][2] == 85:
                             #친구 검색할래요
-                            
+                            print(recvData)
                             sql = f"SELECT id FROM users WHERE \
                                 fd = '{self.sock.fileno()}' AND \
                                 family = '{self.sock.family}' AND \
@@ -129,16 +155,22 @@ class ServerRecv(Thread):
                                 
                             self.DBcursor.execute(sql)
                             My_ID = self.DBcursor.fetchall()
-                            sql = f"SELECT * FROM users WHERE name = '{recvData}';"
+                            sql = f"SELECT id FROM users WHERE name = '{recvData}';"
                             self.DBcursor.execute(sql)
                             Imsi = self.DBcursor.fetchall()
-                            for ID in Imsi:
-                                sql = f"SELECT name FROM friends WHERE ME = '{ID[2]}' AND YOU = '{My_ID}' AND We_friends != 'B';"
-                                self.DBcursor.execute(sql)
-                                Imsi = self.DBcursor.fetchall()
                             
-                            send_header = struct.pack(fmt, b'UUU0', len(str(Imsi).encode('utf-8')))
-                            self.sock.send(send_header + str(Imsi).encode('utf-8'))
+                            '''
+                            차단확인용
+                            for ID in Imsi:
+                                sql = f"SELECT We_friends FROM friends WHERE ME = '{ID[2]}' AND YOU = '{My_ID}' AND We_friends != 'B';"
+                                self.DBcursor.execute(sql)
+                                if self.DBcursor.fetchall() != '':
+                             '''     
+                            
+                            
+                            send_header = struct.pack(fmt, b'UUU0', len(json.dumps(Imsi).encode('utf-8')))
+                            print(send_header)
+                            self.sock.send(send_header + json.dumps(Imsi).encode('utf-8'))
                         else:
                             # 친구 리스트 주세요
                             sql = f"SELECT id FROM users WHERE \
@@ -146,11 +178,11 @@ class ServerRecv(Thread):
                                     proto = '{self.sock.proto}' AND \
                                     family = '{self.sock.family}' AND \
                                     IP = '{self.sock.getpeername()[0]}' AND \
-                                    Port = '{self.sock.getpeername()[1]};'"
+                                    Port = '{self.sock.getpeername()[1]}';"
                             self.DBcursor.execute(sql)
                             Imsi_id = self.DBcursor.fetchall()
-                        
-                            sql = f"SELECT You FROM friends WHERE id = '{Imsi_id[0][0]}' AND We_Friend = 'F';"
+                            
+                            sql = f"SELECT You FROM friends WHERE id = '{Imsi_id}' AND We_Friend = 'F';"
                             print(sql)
                             self.DBcursor.execute(sql)
                             Friends = self.DBcursor.fetchall()
@@ -163,9 +195,11 @@ class ServerRecv(Thread):
                                 Imsi_Name.append(Imsi)
                         
                                 
-                                # My_Friends_Name = json.loads(Imsi_Name)
+                            My_Friends_Name = json.dumps(Imsi_Name)
                             send_header = struct.pack(
                                     fmt, b'UU00', len(str(Imsi_Name).encode('utf-8')))
+                            print (len(str(Imsi_Name).encode('utf-8')))
+                            print(send_header)
                             self.sock.send(send_header + json.dumps(My_Friends_Name).encode('utf-8'))
                                 
                     elif header[0][1] == 82:
@@ -177,7 +211,7 @@ class ServerRecv(Thread):
                                         proto = '{self.sock.proto}' AND \
                                         family = '{self.sock.family}' AND \
                                         IP = '{self.sock.getpeername()[0]}' AND \
-                                        Port = '{self.sock.getpeername()[1]};'"
+                                        Port = '{self.sock.getpeername()[1]}';"
                                 self.DBcursor.execute(sql)
                                 Imsi_id = self.DBcursor.fetchall()
                                 
@@ -187,6 +221,8 @@ class ServerRecv(Thread):
                                 
                                 send_header = struct.pack(
                                     fmt, b'URL0', len(Imsi_friend.encode('utf-8')))
+                                print(len(Imsi_friend.encode('utf-8')))
+                                print(send_header)
                                 self.sock.send(
                                     send_header + Imsi_friend.encode('utf-8'))
                         elif header[0][2] == 89:
@@ -196,7 +232,7 @@ class ServerRecv(Thread):
                                     proto = '{self.sock.proto}' AND \
                                     family = '{self.sock.family}' AND \
                                     IP = '{self.sock.getpeername()[0]}' AND \
-                                    Port = '{self.sock.getpeername()[1]};'"
+                                    Port = '{self.sock.getpeername()[1]}';"
                             self.DBcursor.execute(sql)
                             Imsi_id = self.DBcursor.fetchall()
                             
@@ -204,7 +240,7 @@ class ServerRecv(Thread):
                             self.DBcursor.execute(sql)
                             You_id = self.DBcursor.fetchall()
                             
-                            sql = f"UPDATE friends SET We_Friend = 'F' WHERE id = '{You_id}' AND You = '{Imsi_id}';"
+                            sql = f"UPDATE friends SET We_Friend = 'F' WHERE id = '{You_id}' AND You = '{Imsi_id}' AND We_Friend != 'Z';"
                             self.DBcursor.execute(sql)
                             self.DBconnect.commit()
                             
@@ -219,7 +255,7 @@ class ServerRecv(Thread):
                                     proto = '{self.sock.proto}' AND \
                                     family = '{self.sock.family}' AND \
                                     IP = '{self.sock.getpeername()[0]}' AND \
-                                    Port = '{self.sock.getpeername()[1]};'"
+                                    Port = '{self.sock.getpeername()[1]}';"
                             self.DBcursor.execute(sql)
                             Imsi_id = self.DBcursor.fetchall()
                             
@@ -227,7 +263,7 @@ class ServerRecv(Thread):
                             self.DBcursor.execute(sql)
                             You_id = self.DBcursor.fetchall()
                             
-                            sql = f"DELETE FROM friends WHERE You = '{Imsi_id}' AND id = '{You_id}';"
+                            sql = f"UPDATE friends SET We_Friend = 'Z' WHERE You = '{Imsi_id}' AND id = '{You_id}';"
                             self.DBcursor.execute(sql)
                             self.DBconnect.commit()
                             
@@ -245,9 +281,11 @@ class ServerRecv(Thread):
                                     Imsi_name = self.DBcursor.fetchall()
                                 
                                 send_header = struct.pack(
-                                    fmt, b'USL0', len(Imsi_name.encode('utf-8')))
+                                    fmt, b'USL0', len(json.dumps(Imsi_name).encode('utf-8')))
+                                print(len(Imsi_name.encode('utf-8')))
+                                print(send_header)
                                 self.sock.send(
-                                    send_header + Imsi_name.encode('utf-8'))
+                                    send_header + json.dumps(Imsi_name).encode('utf-8'))
                         elif header[0][2] == 82:
                             # 친구 신청 할래요
                             sql = f"SELECT id FROM users WHERE \
@@ -255,7 +293,7 @@ class ServerRecv(Thread):
                                     proto = '{self.sock.proto}' AND \
                                     family = '{self.sock.family}' AND \
                                     IP = '{self.sock.getpeername()[0]}' AND \
-                                    Port = '{self.sock.getpeername()[1]};'"
+                                    Port = '{self.sock.getpeername()[1]}';"
                             self.DBcursor.execute(sql)
                             Imsi_id = self.DBcursor.fetchall()
                             
@@ -289,14 +327,17 @@ class ServerRecv(Thread):
                             sql = f"UPDATE users SET \
                                 family = '{self.sock.family}' AND \
                                 fd = '{self.sock.fileno()}' AND \
-                                proto = '{self.sock.proto} AND \
-                                IP = '{self.sock.getpeername()[0]}' AND \
-                                Port = '{self.sock.getpeername()[0]};"
+                                proto = '{self.sock.proto}' AND \
+                                IP = '{str(self.sock.getpeername()[0])}' AND \
+                                Port = '{str(self.sock.getpeername()[1])}';"
+                            print(sql)
                             self.DBcursor.execute(sql)
                             self.DBconnect.commit()
                             
                             send_header = struct.pack(
                                 fmt, b'LS00', len((DB_id[0]+"#"+DB_id[2]).encode('utf-8')))
+                            print(len((DB_id[0]+"#"+DB_id[2]).encode('utf-8')))
+                            print(send_header)
                             self.sock.send(
                                 send_header + (DB_id[0]+"#"+DB_id[2]).encode('utf-8'))
 
@@ -331,6 +372,10 @@ class ServerRecv(Thread):
                             send_header = struct.pack(fmt, b'AFI0', 0)
                             self.sock.send(send_header)
 
+            except ConnectionResetError:
+                print("들어오지는거 맞지?")
+                self.sock.close()
+                
             except Exception as e:
                 exc_type, exc_obj, exc_tb = sys.exc_info()
                 fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
@@ -338,7 +383,6 @@ class ServerRecv(Thread):
                 print(f'error type: {str(exc_type)}')
                 print(f'error msg: {str(e)}')
                 print(f'line number: {str(exc_tb.tb_lineno)}')
-
 
 port = 8080
 
