@@ -22,34 +22,39 @@ Accession_form_class = uic.loadUiType('Accession.ui')[0]
 Friend_form_class = uic.loadUiType('Friend.ui')[0]
 
 #메인 윈도우 클래스
-class WindowClass(QMainWindow, form_class):
+class WindowClass(QDialog,QWidget, form_class):
     def __init__(self, sock):
         super().__init__()
         self.setupUi(self)
         self.sock = sock
         
-        self.hide()
-        self.Login = Login_Windowclass(self.sock)
-        self.Login.exec()
-        self.show()
-        
-        print("누가 범인이냐")
+        #print("누가 범인이냐")
         self.Chatting_Send_Button.clicked.connect(self.Chatting_Send)
         self.Chatting.returnPressed.connect(self.Chatting_Send)
         self.File_Send_Button.clicked.connect(self.File_Send)
-        self.Friend_Button.clicked.connect(self.FriendWindows_Create_Button)
-        print("말하면 안혼낸다")
+        #print("말하면 안혼낸다")
         self.receive = Receive(self.sock)
         self.receive.Chatting_Signal.connect(self.Chatting_Slot)
         self.receive.File_Sending_Signal.connect(self.File_Sending_Slot)
         self.receive.File_End_Signal.connect(self.File_End_Slot)
+        self.receive.Friend_Signal.connect(self.Friend_Slot)
         self.receive.start()
+        #친구 관련
+        self.Friend_Name_Button.clicked.connect(self.User_Button)
+        self.Friend_Search_Button.clicked.connect(self.User_Search_List)
+        self.Friend_Accept_Button.clicked.connect(self.User_Accept_List)
+        self.Friend_Button.clicked.connect(self.FriendWindows_Create_Button)
+        self.Friend_List.itemClicked.connect(self.Friend_ListView)
+        self.Friend_State = False
+        self.Friend_List_Save = []
+        self.List_State = "List"
+        self.Friend_select = ''
         
         
         
-        struct_header = struct.pack(fmt, b'UU00', 0)
+        B = 'b'
+        struct_header = struct.pack(fmt, b'UL00', 0)
         self.sock.send(struct_header)
-        
     
     def closeEvent(self, event):
         send_data_header = struct.pack(fmt,b'SF00', 0)
@@ -84,21 +89,103 @@ class WindowClass(QMainWindow, form_class):
             self.Chatting_list.appendPlainText('파일 전송 완료')
             
     def FriendWindows_Create_Button(self):
-        print("너 왜 작동함?")
-        self.Friend = FriendWindowClass(self.sock)
-        self.Friend.show()
-        app.exec_()
+        #print("너 왜 작동함?")
+        self.Friend_List.clear()
+        self.List_State = 'List'
+        send_data_header = struct.pack(fmt, b'UFL0',0)
+        self.sock.send(send_data_header)
+        
         
     def Chatting_Send(self):
-        print("너도 작동하냐?")
+        #print("너도 작동하냐?")
         sendData=self.Chatting.text()
         if sendData != '':
             self.Chatting_list.appendPlainText('나 : ' + sendData)
-            send_data_header = struct.pack(fmt,b'mp00',len(sendData.encode('utf-8')))
-            self.sock.send(send_data_header + sendData.encode('utf-8'))
+            Data = (self.Friend_select, sendData)
+            Data = json.dumps(Data)
+            send_data_header = struct.pack(fmt,b'mp00',len(Data.encode('utf-8')))
+            self.sock.send(send_data_header + Data.encode('utf-8'))
             self.Chatting.clear()
-
-
+    
+    def User_Search_List(self):
+        #U 
+        #-r 찾기
+        self.Friend_List.clear()
+        self.Friend_Name_Edit.clear()
+        #send_data_header = struct.pack(fmt , b'USL0',0)
+        #self.sock.send(send_data_header)
+        self.List_State = 'Search'
+        
+        
+    def User_Accept_List(self):
+        self.Friend_List.clear()
+        self.Friend_Name_Edit.clear()
+        send_data_header = struct.pack(fmt , b'ULR0', 0)
+        self.sock.send(send_data_header)
+        self.List_State = 'Accept'
+        
+        
+    def User_Button(self):
+        Send_NickName = self.Friend_Name_Edit.text()
+        if Send_NickName != '':
+            if self.List_State == 'Search':
+                if self.Friend_Name_Edit.text() != '':
+                    send_data_header = struct.pack(fmt , b'UUU0',len(Send_NickName.encode('utf-8')))
+                    self.sock.send(send_data_header + Send_NickName.encode('utf-8'))
+                else:
+                    send_data_header = struct.pack(fmt , b'USL0', 0)
+                    self.sock.send(send_data_header)
+            elif self.Friend_State == 'Accept':
+                pass
+            
+    def Friend_ListView(self):
+        
+        self.Friend_select = self.Friend_List.currentItem()
+        self.Friend_select = self.Friend_select.text()
+        if self.List_State == 'Search':
+            friend_event = QMessageBox.question(self,'알림','해당 친구에게 추가 요청을 합니다',
+                                 QMessageBox.Yes | QMessageBox.No)    
+            print(self.Friend_select)
+            print(type(self.Friend_select))
+            if friend_event == QMessageBox.Yes:
+                send_data_header = struct.pack(fmt, b'UUR0', len(self.Friend_select.encode('utf-8')))
+                self.sock.send(send_data_header+self.Friend_select.encode('utf-8'))
+        elif self.List_State == 'Accept':
+            friend_event = QMessageBox.question(self,'알림','친구 수락 거절',
+                                 QMessageBox.Yes | QMessageBox.No)
+            
+            if friend_event == QMessageBox.Yes:
+                send_data_header = struct.pack(fmt,b'ULY0',len(self.Friend_select.encode('utf-8')))#친구 요청 보냄
+                self.sock.send(send_data_header + self.Friend_select.encode('utf-8'))
+            elif friend_event == QMessageBox.No:
+                send_data_header = struct.pack(fmt,b'ULN0',len(self.Friend_select.encode('utf-8')))#친구 요청 보냄
+                self.sock.send(send_data_header+self.Friend_select.encode('utf-8'))
+        elif self.List_State == 'List':
+            friend_event = QMessageBox.about(self,'알림','채팅방 생성')
+    
+    @pyqtSlot(str)
+    def Friend_Slot(self, msg):
+        print(msg)
+        Imsi = msg.split(":")
+        if Imsi[0] == 'A':
+            #검색 리스트
+            item = QListWidgetItem()
+            for i in Imsi[1]:
+                item.setText(i)
+                self.Friend_List.addItem(item)
+        elif Imsi[0] == 'B':
+            #요청 받은 리스트
+            item = QListWidgetItem()
+            for i in Imsi[1]:
+                item.setText(i)
+                self.Friend_List.addItem(item)
+        elif Imsi[0] == 'C':
+            #친구 목록 리스트
+            item = QListWidgetItem()
+            for i in Imsi[1]:
+                item.setText(i)
+                self.Friend_List.addItem(item)
+    
     @pyqtSlot(str)
     def Chatting_Slot(self,chat):
         self.Chatting_list.appendPlainText('상대방 : ' + chat)
@@ -127,17 +214,30 @@ class Receive(QThread):
         while True:
             try:
                 recv_data_header = self.sock.recv(HEADER_SIZE)
+                print('메인')
                 header = struct.unpack(fmt, recv_data_header)
-                recvData = self.sock.recv(header[1].decode())
+                recvData = self.sock.recv(header[1]).decode()
                 
                 if header[0][0] == 85:
                     if header[0][1] == 85:
                         self.Friends_Name = json.loads(recvData)
                         for i in self.Friends_Name:
                             Friend_List.append(self.Friends_Name[i])
+                    elif header[0][1] == 82:
+                        if header[0][2] == 76:
+                            #검색 리스트 주는거
+                            self.Friend_Signal.emit('A:'+ recvData)
+                    elif header[0][1] == 76:
+                        if header[0][2] == 82:
+                            #요청 받은 리스트 주는거
+                            self.Friend_Signal.emit('B:'+ recvData)
+                    elif header[0][1] == 65:
+                        if header[0][2] == 76:
+                            # 친구 리스트 주는거
+                            self.Friend_Signal.emit('C:'+ recvData)
                 elif header[0][0] == 109:
                     if header[0][1] == 112:
-                        self.Chatting_Signal.emit(recvData.decode())
+                        self.Chatting_Signal.emit(recvData)
                 elif header[0][0]==102:
                     if header[0][1] == 112:
                         if header[0][2] == 115:
@@ -152,19 +252,6 @@ class Receive(QThread):
                             
                             self.AllData =b''
                             self.File_End_Signal.emit('파일 전송 완료')
-                elif header[0][0] == 85:
-                    if header[0][1] == 82:
-                        if header[0][2] == 76:
-                            #요청 리스트 주는거
-                            Friend_Signal.emit('A:'+ recvData)
-                    elif header[0][1] == 83:
-                        if header[0][2] == 76:
-                            # 검색 리스트 주는거
-                            Friend_Signal.emit('B:'+ recvData)
-                    elif header[0][1] == 65:
-                        if header[0][2] == 76:
-                            # 친구 신청 리스트 주는거
-                            Friend_Signal.emit('C:'+ recvData)
                             
             except Exception as e:
                 exc_type, exc_obj, exc_tb = sys.exc_info()
@@ -180,6 +267,7 @@ U 친구
 
 
 '''
+'''
 #친구검색창
 class FriendWindowClass(QDialog,QWidget,Friend_form_class):
     def __init__(self, sock):
@@ -190,19 +278,26 @@ class FriendWindowClass(QDialog,QWidget,Friend_form_class):
         self.Friend_Search_Button.clicked.connect(self.User_Search_List)
         self.Friend_Accept_Button.clicked.connect(self.User_Accept_List)
         self.Friend_List.itemClicked.connect(self.Friend_ListView)
-        self.MainWindow = WindowClass()
-        self.MainWindow.Friend_Signal.connect(self.Friend_List_Data)
+        self.MainWindow = WindowClass(self.sock)
+        self.MainWindow.List_Signal.connect(self.Friend_List_Data)
         self.Friend_State = False
         self.Friend_List_Save = []
         
-    @pyqtSignal(str)
+    @pyqtSlot(str)
     def Friend_List_Data(self, msg):
+        print(msg)
         Imsi = msg.split(":")
         if Imsi[0] == 'A':
+            #검색 리스트
+            item = QListWidgetItem()
+            for i in Imsi[1]:
+                item.setText(i)
+                Friend_List.addItem(item)
+        elif Imsi[0] == 'B':
+            #요청 리스트
             pass
-        elif Imsi[1] == 'B':
-            pass
-        elif Imsi[2] == 'C':
+        elif Imsi[0] == 'C':
+            #친구 신청 리스트
             pass
         
     def User_Search_List(self):
@@ -251,6 +346,7 @@ class FriendWindowClass(QDialog,QWidget,Friend_form_class):
             elif friend_event == QMessageBox.No:
                 send_data_header = struct.pack(fmt,b'URN0',len(friend.encode('utf-8')))#친구 요청 보냄
                 self.sock.send(send_data_header+friend.encode('utf-8'))
+'''
 #회원가입 윈도우 클래스
 class AccessionWindowClass(QDialog,QWidget,Accession_form_class):
     def __init__(self,sock):
@@ -296,8 +392,9 @@ class Accession_Receive(QThread):
     def run(self):
         while True:
             try:
-                print('진입됨')
+
                 recv_data_header = self.sock.recv(HEADER_SIZE)
+                print('회원가입')
                 header = struct.unpack(fmt,recv_data_header)
                 recvData=self.sock.recv(header[1])
                 print(recvData)
@@ -357,7 +454,11 @@ class Login_Windowclass(QDialog,QWidget,login_form_class):
         if BBB == False:
             QMessageBox.about(self,'알림','로그인 실패')
         else:
+            #로그인 성공
             self.close()
+            self.Main = WindowClass(self.sock)
+            self.Main.show()
+            
            
 class Login_Receive(QThread):
     LSignal = pyqtSignal(bool)
@@ -369,6 +470,7 @@ class Login_Receive(QThread):
         while True:
             try:
                 recv_data_header=self.sock.recv(HEADER_SIZE)
+                print('로그인')
                 print(recv_data_header)
                 header = struct.unpack(fmt, recv_data_header)
                 recvData=self.sock.recv(header[1])
@@ -376,6 +478,7 @@ class Login_Receive(QThread):
                 if header[0][0] == 76:
                     if header[0][1] == 83:
                         self.LSignal.emit(True)
+                        break
                     elif header[0][1] == 70:
                         self.LSignal.emit(False)
             except Exception as e:
@@ -388,19 +491,19 @@ class Login_Receive(QThread):
 
 port = 8080
 clientSock = socket(AF_INET, SOCK_STREAM)
-clientSock.connect(('192.168.0.46', port))
+clientSock.connect(('sangminbabo.com', port))
 print(clientSock)
-print(clientSock.family)
-print(clientSock.fileno())
-print(clientSock.proto)
-print()
-print(clientSock.getpeername()[0])
-print(clientSock.getpeername()[1])
-print()
-print(clientSock.getsockname()[0])
-print(clientSock.getsockname()[1])
+#print(clientSock.family)
+#print(clientSock.fileno())
+#print(clientSock.proto)
+#print()
+#print(clientSock.getpeername()[0])
+#print(clientSock.getpeername()[1])
+#print()
+#print(clientSock.getsockname()[0])
+#print(clientSock.getsockname()[1])
 app = QApplication(sys.argv)
-window = WindowClass(clientSock)
+window = Login_Windowclass(clientSock)
 window.show()
 app.exec_()
 

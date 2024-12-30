@@ -42,6 +42,8 @@ class ServerRecv(Thread):
     def __init__(self, sock, addr):
         super().__init__()
         self.sock = sock
+        A = {}
+        A = {'a' : "asdf", 'b' : 'basdf'}
         self.CloseCount = 0
         self.addr = addr
         self.DBconnect = sqlite3.connect(
